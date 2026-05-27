@@ -1,0 +1,13 @@
+blocksize: 4096
+fs: 192000
+channels: 8
+default_file: "single_bat_1234.wav"
+default_device: null
+
+# Source detection parameters
+vsound: 340
+threshold: 1e-4
+
+# Butterworth filter parameters
+filter_order: 1
+cutoff_freq: 10000
