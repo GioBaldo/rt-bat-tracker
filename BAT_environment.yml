@@ -1,0 +1,13 @@
+name: BAT
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python
+  - pip 
+  - matplotlib 
+  - numpy 
+  - scipy 
+  - pandas
+  - pip:
+    - git+https://github.com/LCAV/pyroomacoustics.git

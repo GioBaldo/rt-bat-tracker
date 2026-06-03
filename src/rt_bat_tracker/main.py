@@ -13,6 +13,7 @@ import natsort
 import time
 import queue
 import hydra
+import math
 from omegaconf import DictConfig, OmegaConf
 from queue import Empty
 import pyqtgraph as pg
@@ -102,9 +103,7 @@ def main():
         thrsold_exceeded = np.array(
             ["X" if rms > cfg.threshold else "_" for rms in channel_rms]
         )
-        print(
-            f"Processing chunk number {chunknum} with shape {audiochunk.shape} threshold exceeded: {thrsold_exceeded}"
-        )
+
         if np.all(channel_rms > cfg.threshold):
             delays = calc_multich_delays(audiochunk, ba_filt=highpass_coeffs, fs=fs)
             di = delays * cfg.vsound
@@ -113,7 +112,9 @@ def main():
             if len(solns) > 0:
                 source_solutions.put((solns, chunknum))
                 return solns
-
+        print(
+            f"Processing chunk number {chunknum} with shape {audiochunk.shape} threshold exceeded: {thrsold_exceeded} delays [ms]: {np.around(delays*1000,3) if 'delays' in locals() else 'N/A'}"
+        )
         return np.array([])
 
     app = pg.mkQApp("Realtime angle-of-arrival plot")
@@ -137,7 +138,7 @@ def main():
     updatenum = 1
 
     w.setCameraParams(distance=camdistance, azimuth=0)
-    w.grabFramebuffer().save("only_array.png")
+    w.grabFramebuffer().save(f"{projPaths.png_dir}/only_array.png")
 
     def update():
         nonlocal updatenum, camdistance
