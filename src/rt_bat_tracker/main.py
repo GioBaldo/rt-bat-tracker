@@ -12,10 +12,8 @@ import glob
 import natsort
 import time
 import queue
-import hydra
 import math
 from omegaconf import DictConfig, OmegaConf
-from queue import Empty
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 from pyqtgraph.Qt import QtCore

@@ -1,13 +1,20 @@
 name: BAT
 channels:
-  - conda-forge
   - defaults
+  - default
 dependencies:
   - python
-  - pip 
-  - matplotlib 
-  - numpy 
-  - scipy 
+  - scipy
+  - matplotlib
+  - pip
   - pandas
+  - numpy
+  - natsort
+  - pyopengl
+  - pyqt
+  - ipykernel
   - pip:
-    - git+https://github.com/LCAV/pyroomacoustics.git
+      - hydra-core
+      - omegaconf
+      - pyqtgraph
+      - pyroomacoustics
