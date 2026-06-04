@@ -18,3 +18,5 @@ dependencies:
       - omegaconf
       - pyqtgraph
       - pyroomacoustics
+      - sounddevice
+      - soundfile

@@ -50,7 +50,7 @@ def main():
         return
 
     audioFileName = os.path.basename(args.file)
-    micLayout_name = audioFileName.replace(".wav", ".csv")
+    micLayout_name = cfg.default_layout
     micLayout_path = os.path.join(projPaths.mic_layout_dir, micLayout_name)
 
     print(f"Loading mic layout from: {micLayout_name}")
