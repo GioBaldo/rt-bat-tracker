@@ -4,8 +4,6 @@ import sounddevice as sd
 import numpy as np
 import time
 
-import sounddevice as sd
-
 
 def resolve_input_device(device_arg):
     """
@@ -27,9 +25,9 @@ def resolve_input_device(device_arg):
 
         if dev["max_input_channels"] <= 0:
             raise ValueError(f"Device {device_id} has no input channels")
-            print(
-                f'Resolved device index {device_id} to: {dev["name"]}, input channels: {dev["max_input_channels"]}'
-            )
+        print(
+            f'Resolved device index {device_id} to: {dev["name"]}, input channels: {dev["max_input_channels"]}'
+        )
         return device_id
 
     except ValueError:
@@ -74,6 +72,9 @@ class AudioFileSource:
 
         return chunk, chunknum
 
+    def get_blocksize(self):
+        return self.block_size
+
     def stop(self):
         pass
 
@@ -111,6 +112,9 @@ class RealtimeAudioSource:
 
     def get_block(self):
         return self.queue.get()
+
+    def get_blocksize(self):
+        return self.block_size
 
     def stop(self):
         if self.stream is not None:
