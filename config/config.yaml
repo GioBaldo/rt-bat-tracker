@@ -1,9 +1,15 @@
 blocksize: 1024
 fs: 192000
-channels: 8
+channels: 1
+dtype: "float32"
 default_file: "single_bat_1234.wav"
 default_layout: "single_bat_1234.csv"
-default_device: null
+default_device: 2
+
+# Tunable parameters
+call_time : 0.03 # minimum call duration in seconds, used to set the minimum size of the call chunk to process
+event_time : 15
+
 
 # Source detection parameters
 vsound: 340
@@ -12,3 +18,15 @@ threshold: 1e-4
 # Butterworth highpass filter parameters
 filter_order: 1
 cutoff_freq: 10000
+
+# Queue parameters - adjust if some chunks are being dropped
+audio_queue_maxsize: 20
+results_queue_maxsize: 20
+
+#logging
+logging:
+  default_level: WARNING
+  levels:
+    processing: DEBUG
+    AudioInput: WARNING
+    

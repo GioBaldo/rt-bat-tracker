@@ -1,135 +1,207 @@
 """
 processing.py
-Consuma blocchi audio dalla audio_queue, esegue:
-  1. FFT con finestra più grande del blocksize (overlap-add su buffer circolare)
-  2. TDOA tra i canali (GCC-PHAT semplificato)
-  3. Stima posizione 3D (placeholder — da sostituire con il tuo array geometry)
-Mette i risultati in result_queue per la GUI.
+
+Reads audio blocks from SharedState.audio_queue and runs
+signal evaluation on each block.
+
+The processing loop uses a blocking get() with timeout so the thread
+yields CPU to other threads while waiting for new data — no busy-waiting.
+Results are written to SharedState.result_queue via state.put_result().
+
+Entry point for the processing thread: run(state, cfg)
 """
 
-import numpy as np
 import logging
 import queue
 
+import numpy as np
+from scipy import signal
+
+from rt_bat_tracker.tracking.localisation_mpr2003 import tristar_mellen_pachter
+from rt_bat_tracker.tracking.common_functions import calc_rms, calc_multich_delays
+
+# import librosa
+# from scipy import signal
+
 logger = logging.getLogger(__name__)
 
-# --- Parametri processing ---
-SAMPLERATE = 192_000
-CHANNELS = 8
-BLOCKSIZE = 1024
-FFT_WINDOW = 4096  # finestra FFT più grande del blocksize
-# → migliore risoluzione frequenziale (~47 Hz/bin a 192kHz)
-OVERLAP = FFT_WINDOW - BLOCKSIZE  # sample di overlap tra finestre successive
 
-# GCC-PHAT: canale di riferimento per il calcolo dei delay
-REF_CHANNEL = 0
+# ---------------------------------------------------------------------------
+# Processor class
+# ---------------------------------------------------------------------------
 
 
-def _gcc_phat(sig_ref, sig_other, fs):
+class AudioProcessor:
     """
-    Generalized Cross-Correlation with Phase Transform.
-    Restituisce il delay stimato in secondi tra sig_ref e sig_other.
-    """
-    n = len(sig_ref) + len(sig_other) - 1
-    n = int(2 ** np.ceil(np.log2(n)))  # prossima potenza di 2 per FFT veloce
+    Consumes audio blocks from the shared queue and runs
+    signal evaluations on each block.
 
-    X = np.fft.rfft(sig_ref, n)
-    Y = np.fft.rfft(sig_other, n)
-
-    # PHAT weighting: normalizza per la magnitudine del prodotto incrociato
-    # → riduce l'effetto di picchi spuri, più robusto in ambienti riverberanti
-    G = X * np.conj(Y)
-    denom = np.abs(G)
-    denom[denom < 1e-10] = 1e-10  # evita divisione per zero
-    G /= denom
-
-    cc = np.fft.irfft(G, n)
-    # Riorganizza in modo che il lag 0 sia al centro
-    cc = np.fft.fftshift(cc)
-
-    lag_samples = np.argmax(cc) - n // 2
-    delay_sec = lag_samples / fs
-    return delay_sec
-
-
-def _estimate_position(delays):
-    """
-    Placeholder per la stima della posizione 3D dall'array microfonico.
-    delays: array di (CHANNELS-1,) delay in secondi rispetto al canale REF.
-    Sostituisci con il tuo algoritmo (es. least-squares su geometria nota).
-    Restituisce un array [x, y, z] normalizzato in metri.
-    """
-    # Stima banale: mappa i primi due delay su x, y, z=0
-    # Il segno del delay dà la direzione relativa al canale di riferimento.
-    x = float(delays[0]) * 343.0  # velocità del suono 343 m/s
-    y = float(delays[1]) * 343.0 if len(delays) > 1 else 0.0
-    z = float(delays[2]) * 343.0 if len(delays) > 2 else 0.0
-    return np.array([x, y, z], dtype=np.float32)
-
-
-def run(audio_queue, result_queue, stop_event):
-    """
-    Entry point del thread processing.
-    Loop: get blocco → accumula in buffer circolare → FFT + TDOA → position → result_queue.
+    Designed to run in a single dedicated thread.
+    All methods are called sequentially — no internal threading.
     """
 
-    # Buffer circolare per l'overlap-add
-    # Shape: (FFT_WINDOW, CHANNELS) — mantiene gli ultimi FFT_WINDOW sample per canale
-    circ_buffer = np.zeros((FFT_WINDOW, CHANNELS), dtype=np.float32)
+    def __init__(self, state, cfg):
+        self._state = state
+        self.fs = cfg.fs
+        self.channels = cfg.channels
+        self.block_size = cfg.blocksize
+        self.threshold = cfg.threshold
+        self.cfg = cfg
+        self.significant_channels = None
 
-    # Finestra di Hann applicata alla FFT per ridurre spectral leakage
-    hann = np.hanning(FFT_WINDOW).astype(np.float32)
+    def _compute_rms(self, block):
+        """
+        RMS amplitude per channel.
+        block shape: (block_size, channels)
+        returns: (channels,) float32
+        """
+        return np.sqrt(np.mean(block**2, axis=0))
 
-    logger.info("processing: avviato, FFT_WINDOW=%d, OVERLAP=%d", FFT_WINDOW, OVERLAP)
+    def _check_thresholds(self, rms):
+        """
+        Boolean mask of channels exceeding the threshold.
+        returns: (channels,) bool
+        """
+        return rms > self.threshold
 
-    while not stop_event.is_set():
-        # --- Recupera il prossimo blocco dalla queue ---
-        try:
-            block, timestamp = audio_queue.get(timeout=0.1)
-        except queue.Empty:
-            # Timeout: nessun blocco disponibile, ricontrolla stop_event
-            continue
+    def _compute_peak(self, block):
+        """
+        Peak absolute amplitude per channel.
+        returns: (channels,) float32
+        """
+        return np.max(np.abs(block), axis=0)
 
-        # --- Accumulo nel buffer circolare (shift + insert) ---
-        # Shift a sinistra di BLOCKSIZE sample, inserisci il nuovo blocco in coda
-        circ_buffer = np.roll(circ_buffer, -BLOCKSIZE, axis=0)
-        circ_buffer[-BLOCKSIZE:, :] = block
+    def _highpass_filter(self, block):
+        """
+        Apply a highpass Butterworth filter to the block.
+        Returns the filtered block of the same shape.
+        """
+        b, a = signal.butter(
+            self.cfg.filter_order,
+            self.cfg.cutoff_freq / (self.fs * 0.5),
+            "high",
+        )
+        return signal.lfilter(b, a, block, axis=0)
 
-        # --- FFT su tutta la finestra FFT_WINDOW con Hann ---
-        # Shape windowed: (FFT_WINDOW, CHANNELS)
-        windowed = circ_buffer * hann[:, np.newaxis]
-        spectrum = np.fft.rfft(windowed, axis=0)
-        # spectrum shape: (FFT_WINDOW//2 + 1, CHANNELS)
-        # magnitudes in dB per la GUI
-        magnitudes = 20 * np.log10(np.abs(spectrum) + 1e-10)
+    def process(self):
+        """
+        Run all evaluations on a call queue.
+        Returns a result dict passed to state.put_result().
 
-        # --- TDOA: GCC-PHAT tra canale REF e tutti gli altri ---
-        delays = np.zeros(CHANNELS - 1, dtype=np.float32)
-        ref_signal = circ_buffer[:, REF_CHANNEL]
-        for ch in range(1, CHANNELS):
-            delays[ch - 1] = _gcc_phat(ref_signal, circ_buffer[:, ch], SAMPLERATE)
+        Extend this method with FFT, TDOA, beamforming, etc.
+        """
+        chunk = self._state.call_chunk.copy()
+        time = self._state.call_time
+        logger.debug("Processing call queue with %d samples", chunk.shape[0])
 
-        # --- Stima posizione 3D ---
-        position = _estimate_position(delays)
+        time_delays = calc_multich_delays(
+            chunk[:, self.significant_channels], self.cfg.fs
+        )
+        path_diff = time_delays * self.cfg.vsound
+        locations = tristar_mellen_pachter(
+            self._state.micxyz[self.significant_channels], path_diff
+        )
 
-        # --- Pacchetto risultati verso la GUI ---
-        result = {
-            "timestamp": timestamp,
-            "position": position,  # np.array [x, y, z]
-            "delays": delays,  # np.array (CHANNELS-1,) in secondi
-            "magnitudes": magnitudes,  # np.array (FFT_WINDOW//2+1, CHANNELS) in dB
-        }
+        self._state.put_result(locations, time)
+        print(f"{locations}")
 
-        # put_nowait: se la GUI è indietro scartiamo il frame più vecchio
-        try:
-            result_queue.put_nowait(result)
-        except queue.Full:
-            try:
-                result_queue.get_nowait()  # rimuove il frame più vecchio
-                result_queue.put_nowait(result)
-            except queue.Empty:
-                pass
+        return True
 
-        audio_queue.task_done()
+    # ------------------------------------------------------------------
+    # Processing loop
+    # ------------------------------------------------------------------
 
-    logger.info("processing: terminato")
+    def run_loop(self):
+        """
+        Main processing loop — runs for the lifetime of the thread.
+
+        get_audio() blocks for up to `timeout` seconds waiting for
+        a new block. During that wait the GIL is released and other
+        threads (GUI, audio callback) run freely — no busy-waiting.
+
+        Returns when state.stop_event is set.
+        """
+        logger.info(
+            "AudioProcessor loop started — fs=%d ch=%d blocksize=%d - callFlag %s",
+            self.fs,
+            self.channels,
+            self.block_size,
+            self._state.call_flag,
+        )
+
+        while not self._state.stop_event.is_set():
+
+            # Blocking get with timeout — yields CPU while waiting.
+            # Returns (None, None) on timeout so we loop back and
+            # recheck stop_event without stalling indefinitely.
+            block, timestamp = self._state.get_audio(timeout=0.1)
+
+            if block is None:
+                # Timeout: no new data yet, go back and wait again
+                continue
+
+            # here i shoud highpass filter the block.
+            block = self._highpass_filter(block)
+            rms = self._compute_rms(block)
+            active_ch = self._check_thresholds(rms)
+
+            if not self._state.call_flag:
+                if np.any(active_ch):
+                    self.significant_channels = np.where(active_ch)[0]
+                    logger.info(
+                        "New call detected at %.2f s — active channels: %s",
+                        timestamp,
+                        self.significant_channels,
+                    )
+                    self._state.call_flag = True
+                    self._state.call_time = timestamp
+                    self._state.call_chunk = block
+
+            elif self._state.call_flag == True:
+                if (
+                    np.any(active_ch)
+                    or timestamp - self._state.call_time < self.cfg.call_time
+                ):
+                    self._state.call_chunk = np.append(
+                        self._state.call_chunk, block, axis=0
+                    )
+                    chs = np.where(active_ch)[0]
+                    self.significant_channels = np.union1d(
+                        self.significant_channels, chs
+                    )
+                    logger.debug(
+                        "Call updated at %.3f s — significant channels: %s - added channels: %s",
+                        timestamp,
+                        self.significant_channels,
+                        chs,
+                    )
+
+                elif timestamp - self._state.call_time > self.cfg.call_time:
+                    logger.info(
+                        "Call ended at %.2f s — total duration: %.4f s - samples stored %i -  pushing results to queue",
+                        timestamp,
+                        timestamp - self._state.call_time,
+                        self._state.call_chunk.shape[0],
+                    )
+                    if (
+                        self.process()
+                    ):  # is not detecting new calls until process is completed
+                        self._state.call_chunk = np.ndarray([])
+                        self._state.call_flag = False
+
+        logger.info("AudioProcessor loop stopped")
+
+
+# ---------------------------------------------------------------------------
+# Thread entry point
+# ---------------------------------------------------------------------------
+
+
+def run(state, cfg):
+    """
+    Processing thread entry point — called once by the thread, never loops.
+    Instantiates AudioProcessor and runs its loop until shutdown.
+    """
+    processor = AudioProcessor(state, cfg)
+    processor.run_loop()
+    logger.info("processing.run: exit")

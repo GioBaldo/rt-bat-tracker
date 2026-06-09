@@ -5,22 +5,6 @@ import os
 import sys
 
 
-def list_input_devices():
-    devices = sd.query_devices()
-    default_input = (
-        sd.default.device[0]
-        if isinstance(sd.default.device, (list, tuple))
-        else sd.default.device
-    )
-    print("Available audio devices:")
-    for idx, dev in enumerate(devices):
-        if dev["max_output_channels"] > 0:
-            default_tag = " (default)" if idx == default_input else ""
-            print(
-                f"{idx}: {dev['name']} - outputs={dev['max_output_channels']}{default_tag}"
-            )
-
-
 def parse_args(
     audioFiles_dir, default_file="single_bat_1234.wav", default_device=None, argv=None
 ):
@@ -70,3 +54,9 @@ def parse_args(
         args.file = os.path.join(audioFiles_dir, args.file)
 
     return args
+
+
+def list_input_devices():
+    devices = sd.query_devices()
+    print("Available audio devices:")
+    print(devices)
