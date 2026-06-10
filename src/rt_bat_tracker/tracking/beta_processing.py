@@ -103,7 +103,6 @@ class AudioProcessor:
         )
 
         self._state.put_result(locations, time)
-        print(f"{locations}")
 
         return True
 

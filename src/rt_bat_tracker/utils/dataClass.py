@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 import logging
 import math
 import numpy as np
+from collections import deque
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,9 @@ class SharedState:
         self.audio_queue = queue.Queue(maxsize=cfg.audio_queue_maxsize)
         self.result_queue = queue.Queue(maxsize=cfg.results_queue_maxsize)
 
+        self.gui_buffer = deque(maxlen=cfg.buffer_length)
+        self.buffer_lock = threading.Lock()
+
         self.call_chunk = np.ndarray([])
         self.call_flag = False
         self.call_time = None
@@ -26,6 +30,8 @@ class SharedState:
         self.dropped_results = 0
 
         self.t_start = None
+        self.gui_t_start = None
+        self.gui_running_flag = False
 
         logger.info("trying to load micxyz from: %s", cfg.micLayout_path)
 
@@ -33,9 +39,12 @@ class SharedState:
 
     def start(self):
         self.t_start = time.monotonic()
+        print(f"timerStarted: {self.t_start}")
 
-    def stop(self):
+    def stop(self, caller="unspecified"):
+        logger.warning("stop requested by %s", caller)
         self.stop_event.set()
+        self.t_start = None
 
     def elapsed_time(self):
         if self.t_start is None:
@@ -75,3 +84,27 @@ class SharedState:
         except queue.Empty:
             logger.debug("Empty results queue, timeout after %.1f s", timeout)
             return None, None
+
+    def write_buffer(self, result, timestamp):
+
+        if self.stop_event.is_set():
+            return
+        with self.buffer_lock:
+            if timestamp is None:
+                # self.gui_buffer.append({"pos": None, "timestamp": None})
+                return
+
+            elif len(result) < 1:
+                # self.gui_buffer.append({"pos": None, "timestamp": timestamp})
+                return
+            else:
+                res = result[0]
+                self.gui_buffer.append((np.array([res[0], res[1], res[2]]), timestamp))
+
+        return True
+
+    def read_buffer(self):
+        with self.buffer_lock:
+            all_points = np.array([p[0] for p in self.gui_buffer])
+            all_times = np.array([p[1] for p in self.gui_buffer])
+        return all_points, all_times

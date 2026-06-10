@@ -13,6 +13,7 @@ class ProjectPaths:
     config_dir: Path
     gif_dir: Path
     png_dir: Path
+    gui_dir: Path
 
 
 def get_project_paths() -> ProjectPaths:
@@ -28,6 +29,7 @@ def get_project_paths() -> ProjectPaths:
         config_dir=project_dir / "config",
         gif_dir=project_dir / "results" / "gif",
         png_dir=project_dir / "results" / "png",
+        gui_dir=project_dir / "src" / "rt_bat_tracker" / "GUI",
     )
 
     return paths

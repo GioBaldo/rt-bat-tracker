@@ -14,17 +14,12 @@ Entry point for the audio thread: run(state, cfg)
 
 import time
 import logging
-
+import os
 import numpy as np
 import sounddevice as sd
 import soundfile as sf
 
 logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Device resolution helper
-# ---------------------------------------------------------------------------
 
 
 def resolve_input_device(device_arg):
@@ -154,7 +149,7 @@ class RealtimeAudioSource:
 
         except sd.PortAudioError as e:
             logger.error("PortAudio error: %s", e)
-            self._state.stop()  # propagate failure to all threads
+            self._state.stop(__name__)  # propagate failure to all threads
 
     def stop(self):
         """Closes the PortAudio stream and releases resources."""
@@ -275,7 +270,7 @@ class AudioFileSource:
         )
 
         # File exhausted: signal shutdown to all other threads
-        self._state.stop()
+        self._state.stop(__name__)
 
     def stop(self):
         """
@@ -317,8 +312,13 @@ def run(state, cfg):
         raise ValueError(
             f"Unknown audio mode: '{cfg.mode}' — expected 'realtime' or 'audiofile'"
         )
-
+    while not state.gui_running_flag:
+        time.sleep(20)
+        if state.stop_event.isSet():
+            logger.info("audio stream never started - exiting audio thread")
+            return
+    state.start()
     source.start()  # blocks until stop_event or end of file
-    source.stop()  # cleanup
+    source.stop()  # cleanup - nothing is actually done by now
 
     logger.info("audio_input.run: exit")

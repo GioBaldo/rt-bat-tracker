@@ -6,41 +6,41 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>813</width>
-    <height>890</height>
+    <width>1124</width>
+    <height>892</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QOpenGLWidget" name="openGLWidget">
+   <widget class="GLViewWidget" name="pathViewer">
     <property name="geometry">
      <rect>
-      <x>20</x>
-      <y>30</y>
-      <width>761</width>
-      <height>471</height>
+      <x>10</x>
+      <y>20</y>
+      <width>891</width>
+      <height>651</height>
      </rect>
     </property>
    </widget>
-   <widget class="QOpenGLWidget" name="openGLWidget_2">
+   <widget class="GLViewWidget" name="specViewer">
     <property name="geometry">
      <rect>
-      <x>20</x>
-      <y>510</y>
-      <width>761</width>
-      <height>200</height>
+      <x>10</x>
+      <y>680</y>
+      <width>1081</width>
+      <height>161</height>
      </rect>
     </property>
    </widget>
-   <widget class="QScrollArea" name="scrollArea">
+   <widget class="QScrollArea" name="historyArea">
     <property name="geometry">
      <rect>
-      <x>20</x>
-      <y>719</y>
-      <width>761</width>
-      <height>101</height>
+      <x>910</x>
+      <y>20</y>
+      <width>181</width>
+      <height>651</height>
      </rect>
     </property>
     <property name="widgetResizable">
@@ -51,8 +51,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>759</width>
-       <height>99</height>
+       <width>179</width>
+       <height>649</height>
       </rect>
      </property>
     </widget>
@@ -63,13 +63,20 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>813</width>
+     <width>1124</width>
      <height>23</height>
     </rect>
    </property>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>GLViewWidget</class>
+   <extends>QOpenGLWidget</extends>
+   <header location="global">pyqtgraph.opengl</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

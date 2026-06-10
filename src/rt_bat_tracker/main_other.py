@@ -17,6 +17,8 @@ automaticamente se il processo principale muore.
 # %% Imports
 import logging
 import os
+
+os.environ["PYQTGRAPH_QT_LIB"] = "PyQt5"
 import queue
 import signal
 import sys
@@ -26,7 +28,7 @@ from omegaconf import OmegaConf
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 from pyqtgraph.Qt import QtCore
-
+import time
 import sounddevice as sd
 
 # ---------------------------------------------------------------------------
@@ -36,8 +38,7 @@ from rt_bat_tracker.utils.cli import parse_args, list_input_devices
 from rt_bat_tracker.utils.paths import get_project_paths
 import rt_bat_tracker.audio.audio_input as audio_input
 import rt_bat_tracker.tracking.beta_processing as processing
-import rt_bat_tracker.GUI.gui_update as gui_update
-from rt_bat_tracker.GUI.GUI_class import Window
+import rt_bat_tracker.GUI.gui_update as gui
 from rt_bat_tracker.utils.dataClass import SharedState
 from rt_bat_tracker.utils.json_formatter import JsonFormatter
 
@@ -50,7 +51,7 @@ projPaths = get_project_paths()
 # set up logging
 # main.py
 logger = logging.getLogger()  # no name = root
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.ERROR)
 
 stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setLevel(logging.INFO)
@@ -90,6 +91,7 @@ def main():
     cfg.file = args.file
     cfg.device = args.device
     cfg.micLayout_path = str(os.path.join(projPaths.mic_layout_dir, cfg.default_layout))
+    cfg.GUIpath = str(os.path.join(projPaths.gui_dir, "GUI_Layout.ui"))
 
     logger.info("Modalità di acquisizione: %s", cfg.mode)
 
@@ -109,7 +111,7 @@ def main():
         target=audio_input.run,
         args=(state, cfg),
         name="AudioInput",
-        daemon=True,  # terminato automaticamente se il main thread muore
+        daemon=False,  # terminato automaticamente se il main thread muore
     )
 
     # --- Thread processing (daemon) ---
@@ -117,7 +119,7 @@ def main():
         target=processing.run,
         args=(state, cfg),
         name="Processing",
-        daemon=True,
+        daemon=False,
     )
 
     # --- Avvio thread ---
@@ -131,14 +133,15 @@ def main():
     # QApplication deve essere creata nel main thread.
     # gui_update.run() blocca qui finché la finestra non viene chiusa,
     # dopodiché setta stop_event tramite app.aboutToQuit.
-    app = pg.mkQApp("REAL TIME BAT TRACKER")
-    # window = Window()
-    # app.exec_()
+    logger.info("loading gui... ")
+    state.gui_t_start = time.time()
+    gui.run(state, cfg)
+    # app.exec()
     # Su RPi4: se usi eglfs forza il platform plugin corretto
     # export QT_QPA_PLATFORM=eglfs   (oppure xcb se hai X11)
 
     logger.info("GUI avviata nel main thread")
-    gui_update.run(state, app=app)
+    # gui_update.run(state, app=app)
 
     # --- Shutdown: la GUI è uscita, stop_event è già settato ---
     logger.info("GUI chiusa — attendo terminazione thread...")

@@ -23,6 +23,10 @@ cutoff_freq: 10000
 audio_queue_maxsize: 20
 results_queue_maxsize: 20
 
+# GUI parameters
+update_fps: 20
+buffer_length: 10
+
 #logging
 logging:
   default_level: WARNING
