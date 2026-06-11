@@ -313,7 +313,7 @@ def run(state, cfg):
             f"Unknown audio mode: '{cfg.mode}' — expected 'realtime' or 'audiofile'"
         )
     while not state.gui_running_flag:
-        time.sleep(20)
+        time.sleep(1)
         if state.stop_event.isSet():
             logger.info("audio stream never started - exiting audio thread")
             return

@@ -32,6 +32,7 @@ class SharedState:
         self.t_start = None
         self.gui_t_start = None
         self.gui_running_flag = False
+        self.points_fade = False
 
         logger.info("trying to load micxyz from: %s", cfg.micLayout_path)
 
@@ -39,7 +40,6 @@ class SharedState:
 
     def start(self):
         self.t_start = time.monotonic()
-        print(f"timerStarted: {self.t_start}")
 
     def stop(self, caller="unspecified"):
         logger.warning("stop requested by %s", caller)
@@ -90,17 +90,18 @@ class SharedState:
         if self.stop_event.is_set():
             return
         with self.buffer_lock:
-            if timestamp is None:
-                # self.gui_buffer.append({"pos": None, "timestamp": None})
-                return
+            # if timestamp is None:
+            #     # self.gui_buffer.append({"pos": None, "timestamp": None})
+            #     return
 
-            elif len(result) < 1:
-                # self.gui_buffer.append({"pos": None, "timestamp": timestamp})
-                return
-            else:
+            # elif len(result) < 1:
+            #     # self.gui_buffer.append({"pos": None, "timestamp": timestamp})
+            #     return
+            try:
                 res = result[0]
                 self.gui_buffer.append((np.array([res[0], res[1], res[2]]), timestamp))
-
+            except:
+                return False
         return True
 
     def read_buffer(self):

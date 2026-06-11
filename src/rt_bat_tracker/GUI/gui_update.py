@@ -72,21 +72,20 @@ class MainWindow(QMainWindow):
         # print(f"strange result type {type(result)}")
         # return
 
-        self._state.write_buffer(result, timestamp)
+        newVal = self._state.write_buffer(result, timestamp)
         points, all_times = self._state.read_buffer()
 
-        logger.info("GUI updated succesfully with new results: %s", type(points))
+        logger.debug("GUI updated succesfully with new results: %s", type(points))
         # update widgets here
-
+        # print(f"new point - delta time: {self._state.elapsed_time() - timestamp}")
         self._source_plot.setData(pos=points)
 
     def _setup_path_viewer(self, micxyz):
-        # no initializeGL() call
 
         grid = gl.GLGridItem()
-        grid.setSize(10, 10)
+        grid.setSize(20, 20)
         grid.setSpacing(1, 1)
-        self.pathViewer.addItem(grid)  # ← was missing
+        self.pathViewer.addItem(grid)
 
         self._mic_plot = gl.GLScatterPlotItem(
             pos=micxyz,
