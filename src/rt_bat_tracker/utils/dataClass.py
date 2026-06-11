@@ -14,6 +14,8 @@ class SharedState:
 
     def __init__(self, cfg):
 
+        self.session = None
+
         self.audio_queue = queue.Queue(maxsize=cfg.audio_queue_maxsize)
         self.result_queue = queue.Queue(maxsize=cfg.results_queue_maxsize)
 
@@ -32,10 +34,16 @@ class SharedState:
         self.t_start = None
         self.gui_t_start = None
         self.gui_running_flag = False
+        self.fade = True
+        self.fade_time = 1
+        self.tail_color = (1, 1, 0)
 
         logger.info("trying to load micxyz from: %s", cfg.micLayout_path)
 
         self.micxyz = np.loadtxt(cfg.micLayout_path, delimiter=",")
+
+        # stats
+        self.empty_res_count = 0
 
     def start(self):
         self.t_start = time.monotonic()
@@ -79,29 +87,24 @@ class SharedState:
             )
 
     def get_result(self, timeout=0.1):
+        if self.stop_event.is_set():
+            return None, None
         try:
-            return self.result_queue.get(timeout=timeout)
+            result, timestamp = self.result_queue.get(timeout=timeout)
+
+            if timestamp is None:
+                return None, None
+
+            elif len(result) < 1:
+                self.empty_res_count += 1
+                return None, None
+            else:
+                res = result[0]
+                return np.array([res[0], res[1], res[2]]), timestamp
+
         except queue.Empty:
             logger.debug("Empty results queue, timeout after %.1f s", timeout)
             return None, None
-
-    def write_buffer(self, result, timestamp):
-
-        if self.stop_event.is_set():
-            return
-        with self.buffer_lock:
-            if timestamp is None:
-                # self.gui_buffer.append({"pos": None, "timestamp": None})
-                return
-
-            elif len(result) < 1:
-                # self.gui_buffer.append({"pos": None, "timestamp": timestamp})
-                return
-            else:
-                res = result[0]
-                self.gui_buffer.append((np.array([res[0], res[1], res[2]]), timestamp))
-
-        return True
 
     def read_buffer(self):
         with self.buffer_lock:

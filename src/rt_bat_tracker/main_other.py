@@ -36,6 +36,7 @@ import sounddevice as sd
 # ---------------------------------------------------------------------------
 from rt_bat_tracker.utils.cli import parse_args, list_input_devices
 from rt_bat_tracker.utils.paths import get_project_paths
+from rt_bat_tracker.utils.session_class import Session
 import rt_bat_tracker.audio.audio_input as audio_input
 import rt_bat_tracker.tracking.beta_processing as processing
 import rt_bat_tracker.GUI.gui_update as gui
@@ -51,7 +52,7 @@ projPaths = get_project_paths()
 # set up logging
 # main.py
 logger = logging.getLogger()  # no name = root
-logger.setLevel(logging.ERROR)
+logger.setLevel(logging.INFO)
 
 stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setLevel(logging.INFO)
@@ -95,8 +96,9 @@ def main():
 
     logger.info("Modalità di acquisizione: %s", cfg.mode)
 
-    # initialize shared state class
+    # initialize util classes
     state = SharedState(cfg)
+    state.session = Session(cfg, state, "First Session")
 
     # --- Signal handler per SIGINT (Ctrl-C) e SIGTERM ---
     def _handle_signal(signum, frame):

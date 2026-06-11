@@ -45,6 +45,7 @@ class MainWindow(QMainWindow):
 
         self._state = state
         self._cfg = cfg
+        self.event = None
         self.timer = int(1000 / self._cfg.update_fps)
         try:
             self._setup_path_viewer(self._state.micxyz)
@@ -67,26 +68,35 @@ class MainWindow(QMainWindow):
             )
             self._state.gui_running_flag = True
 
-        result, timestamp = self._state.get_result()
-        # if result == None or result == []:
-        # print(f"strange result type {type(result)}")
-        # return
+        self.event = self._state.session.active_event
 
-        self._state.write_buffer(result, timestamp)
+        pos, timestamp = self._state.get_result()
+
+        if pos is not None:
+            if self.event is None:
+                self.event = self._state.session.new_event(timestamp)
+
+            self.event.add_point(pos, timestamp)
+
+        else:
+            self.event.update_sleep_timer()
+
         points, all_times = self._state.read_buffer()
 
         logger.info("GUI updated succesfully with new results: %s", type(points))
+
         # update widgets here
 
         self._source_plot.setData(pos=points)
 
     def _setup_path_viewer(self, micxyz):
-        # no initializeGL() call
+
+        self.setWindowTitle(self._state.session.session_name)
 
         grid = gl.GLGridItem()
         grid.setSize(10, 10)
         grid.setSpacing(1, 1)
-        self.pathViewer.addItem(grid)  # ← was missing
+        self.pathViewer.addItem(grid)
 
         self._mic_plot = gl.GLScatterPlotItem(
             pos=micxyz,
