@@ -10,7 +10,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def run(state, cfg):
+def run(state, cfg, session):
     from PyQt5.QtWidgets import QApplication
     from PyQt5.QtCore import Qt
 
@@ -20,7 +20,7 @@ def run(state, cfg):
 
     app = QApplication(sys.argv)
 
-    window = MainWindow(state, cfg)
+    window = MainWindow(state, cfg, session)
     window.show()
 
     app.aboutToQuit.connect(state.stop)  # window closed → stops all threads
@@ -30,11 +30,9 @@ def run(state, cfg):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, state, cfg):
+    def __init__(self, state, cfg, session):
         super().__init__()
         import pyqtgraph as pg
-
-        # pg.setConfigOption("qt_lib", "PyQt5")
 
         try:
             loadUi(cfg.GUIpath, self, {"GLViewWidget": gl.GLViewWidget})
@@ -43,6 +41,7 @@ class MainWindow(QMainWindow):
             state.stop(__name__)
             return
 
+        self._session = session
         self._state = state
         self._cfg = cfg
         self.event = None
@@ -60,6 +59,7 @@ class MainWindow(QMainWindow):
 
     def _update(self):
         if self._state.stop_event.isSet():
+            self._session.update(None, None)
             return
         if not self._state.gui_running_flag:
             logger.info(
@@ -68,22 +68,12 @@ class MainWindow(QMainWindow):
             )
             self._state.gui_running_flag = True
 
-        self.event = self._state.session.active_event
-
         pos, timestamp = self._state.get_result()
+        if pos is None:
+            print("ok POS is NONE")
+        self._session.update(pos, timestamp)
 
-        if pos is not None:
-            if self.event is None:
-                self.event = self._state.session.new_event(timestamp)
-
-            self.event.add_point(pos, timestamp)
-
-        else:
-            self.event.update_sleep_timer()
-
-        points, all_times = self._state.read_buffer()
-
-        logger.info("GUI updated succesfully with new results: %s", type(points))
+        points, all_times = self._session.read_event()
 
         # update widgets here
 
@@ -91,7 +81,7 @@ class MainWindow(QMainWindow):
 
     def _setup_path_viewer(self, micxyz):
 
-        self.setWindowTitle(self._state.session.session_name)
+        self.setWindowTitle(self._session.session_name)
 
         grid = gl.GLGridItem()
         grid.setSize(10, 10)

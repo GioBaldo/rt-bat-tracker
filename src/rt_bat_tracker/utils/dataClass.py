@@ -14,8 +14,6 @@ class SharedState:
 
     def __init__(self, cfg):
 
-        self.session = None
-
         self.audio_queue = queue.Queue(maxsize=cfg.audio_queue_maxsize)
         self.result_queue = queue.Queue(maxsize=cfg.results_queue_maxsize)
 

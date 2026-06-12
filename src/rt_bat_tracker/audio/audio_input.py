@@ -89,7 +89,15 @@ class RealtimeAudioSource:
     for TDOA calculations without any additional synchronization.
     """
 
-    def __init__(self, state, device=None, fs=192_000, channels=8, block_size=2048):
+    def __init__(
+        self,
+        state,
+        device=None,
+        fs=192_000,
+        channels=8,
+        block_size=2048,
+        dtype="float32",
+    ):
         self._state = state
         self.device = resolve_input_device(device)
         self.fs = fs
@@ -97,6 +105,7 @@ class RealtimeAudioSource:
         self.block_size = block_size
         self._stream = None
         self._chunknum = 0
+        self.dtype = dtype
 
     def _callback(self, indata, frames, time_info, status):
         """
@@ -107,14 +116,9 @@ class RealtimeAudioSource:
         time_info.inputBufferAdcTime: hardware ADC timestamp in seconds
         """
         if status:
-            # Avoid logger here in production — it acquires a Python lock
-            # which can cause priority inversion on the RT thread.
-            # Use a dedicated status queue if you need robust RT-safe logging.
-            pass
 
-        # Mandatory copy: PortAudio reuses the indata buffer immediately
-        # after this function returns. Without copy, the processing thread
-        # would read data already overwritten by the next block.
+            pass
+        print(f"time_info: {time_info.inputBufferAdcTime}  indatatype: {type(frames)}")
         self._state.put_audio(indata.copy(), time_info.inputBufferAdcTime)
         self._chunknum += 1
 
@@ -130,7 +134,7 @@ class RealtimeAudioSource:
                 samplerate=self.fs,
                 channels=self.channels,
                 blocksize=self.block_size,
-                dtype="float32",
+                dtype=self.dtype,
                 callback=self._callback,
                 latency="low",
             )
@@ -299,7 +303,8 @@ def run(state, cfg):
             device=cfg.device,
             fs=cfg.fs,
             channels=cfg.channels,
-            block_size=cfg.block_size,
+            block_size=cfg.blocksize,
+            dtype="int16",
         )
     elif cfg.mode == "audiofile":
         source = AudioFileSource(
@@ -313,7 +318,7 @@ def run(state, cfg):
             f"Unknown audio mode: '{cfg.mode}' — expected 'realtime' or 'audiofile'"
         )
     while not state.gui_running_flag:
-        time.sleep(20)
+        time.sleep(1)
         if state.stop_event.isSet():
             logger.info("audio stream never started - exiting audio thread")
             return

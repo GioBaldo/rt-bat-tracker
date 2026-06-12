@@ -8,12 +8,15 @@ logger = logging.getLogger(__name__)
 
 class Event:
 
-    def __init__(self, state, idx, start_time=time.monotonic()):
+    def __init__(self, idx, start_time):
         self.points: list[Point] = []
-        self._state = state
-        self.start_time = start_time
-        self.event_name = str("Event ", idx)
+        # IMPORTANT: time_adc must be used for sample alignment
+        self.start_time_adc = start_time
+        # IMPORTANT: time is used for timers. they are slightly different
+        self.start_time = time.monotonic()
+        self.event_name = f"Event {idx}"
         self.duration = None
+        self.last_call_time = start_time
 
         self.sleep_timer = 0
 
@@ -21,17 +24,6 @@ class Event:
         p = Point(pos, timestamp)
         self.points.append(p)
         return
-
-    def get_points(self, time):
-        active_points = []
-        for p in self.points:
-            age = time - p.abs_ts
-            if age > 0:
-                op = min(0, 1 - op / self._state.fade_time) if self._state.fade else 1
-                p.color = (self._state.tail_color, op)
-                active_points.append(p)
-
-        return active_points
 
     def update_sleep_timer(self):
         self.sleep_timer += time.monotonic - self.sleep_timer
@@ -41,9 +33,3 @@ class Event:
 
     def terminate_event(self):
         self.duration = time.monotonic - self.start_time
-        logger.info(
-            "Event (%s) terminated - %d corrupted results reported",
-            self.event_name,
-            self._state.empty_res_count,
-        )
-        self

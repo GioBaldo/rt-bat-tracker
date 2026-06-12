@@ -52,10 +52,10 @@ projPaths = get_project_paths()
 # set up logging
 # main.py
 logger = logging.getLogger()  # no name = root
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 stream_handler = logging.StreamHandler(sys.stdout)
-stream_handler.setLevel(logging.INFO)
+stream_handler.setLevel(logging.DEBUG)
 stream_handler.setFormatter(
     logging.Formatter("%(threadName)s - %(levelname)s - %(message)s")
 )
@@ -98,7 +98,7 @@ def main():
 
     # initialize util classes
     state = SharedState(cfg)
-    state.session = Session(cfg, state, "First Session")
+    session = Session(cfg, state, "First Session")
 
     # --- Signal handler per SIGINT (Ctrl-C) e SIGTERM ---
     def _handle_signal(signum, frame):
@@ -137,16 +137,22 @@ def main():
     # dopodiché setta stop_event tramite app.aboutToQuit.
     logger.info("loading gui... ")
     state.gui_t_start = time.time()
-    gui.run(state, cfg)
+    gui.run(state, cfg, session)
     # app.exec()
     # Su RPi4: se usi eglfs forza il platform plugin corretto
     # export QT_QPA_PLATFORM=eglfs   (oppure xcb se hai X11)
 
-    logger.info("GUI avviata nel main thread")
-    # gui_update.run(state, app=app)
-
     # --- Shutdown: la GUI è uscita, stop_event è già settato ---
-    logger.info("GUI chiusa — attendo terminazione thread...")
+    n_events = len(session.event_list)
+    event_names = []
+    for e in session.event_list:
+        event_names.append(e.event_name)
+
+    logger.info(
+        "GUI chiusa — attendo terminazione thread... %d Event saved: %s",
+        n_events,
+        event_names,
+    )
 
     # join con timeout: se un thread non risponde entro 3s, proseguiamo comunque
     for t, name in [(audio_thread, "AudioInput"), (proc_thread, "Processing")]:
