@@ -1,6 +1,6 @@
 blocksize: 1024
 fs: 192000
-channels: 1
+channels: 8
 dtype: "float32"
 default_file: "single_bat_1234.wav"
 default_layout: "single_bat_1234.csv"

@@ -299,7 +299,7 @@ def run(state, cfg):
             device=cfg.device,
             fs=cfg.fs,
             channels=cfg.channels,
-            block_size=cfg.block_size,
+            block_size=cfg.blocksize,
         )
     elif cfg.mode == "audiofile":
         source = AudioFileSource(

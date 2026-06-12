@@ -51,7 +51,7 @@ projPaths = get_project_paths()
 # set up logging
 # main.py
 logger = logging.getLogger()  # no name = root
-logger.setLevel(logging.ERROR)
+logger.setLevel(logging.DEBUG)
 
 stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setLevel(logging.INFO)
