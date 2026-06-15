@@ -29,7 +29,7 @@ max_event_time: 10      # max duration of an event
 
 
 # GUI parameters
-update_fps: 20
+update_fps: 10
 buffer_length: 10
 
 #logging
