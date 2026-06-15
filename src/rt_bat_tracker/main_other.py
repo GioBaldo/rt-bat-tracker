@@ -55,7 +55,7 @@ logger = logging.getLogger()  # no name = root
 logger.setLevel(logging.DEBUG)
 
 stream_handler = logging.StreamHandler(sys.stdout)
-stream_handler.setLevel(logging.DEBUG)
+stream_handler.setLevel(logging.INFO)
 stream_handler.setFormatter(
     logging.Formatter("%(threadName)s - %(levelname)s - %(message)s")
 )

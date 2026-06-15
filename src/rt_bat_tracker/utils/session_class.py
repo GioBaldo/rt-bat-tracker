@@ -4,7 +4,7 @@ import logging
 import numpy as np
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 class Session:
@@ -109,7 +109,7 @@ class Session:
         of one track, the audio file? some stats about the event?
         """
         # WILL IMPLEMENT ALSO SPECTROGRAM STORE AND OTHER DATA
-        logger.info("killing event!!")
+        logger.info(f"killing event: {self.active_event.event_name}")
         if self.active_event is not None:
             self.active_event.duration = time.monotonic() - self.active_event.start_time
             self.active_event = None
