@@ -24,6 +24,7 @@ from rt_bat_tracker.tracking.common_functions import calc_rms, calc_multich_dela
 # from scipy import signal
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 # ---------------------------------------------------------------------------
@@ -106,7 +107,9 @@ class AudioProcessor:
         locations = tristar_mellen_pachter(
             self._state.micxyz[self.significant_channels], path_diff
         )
-        print(f"about tu push results, max rms = {self.max_rms}")
+        logger.debug(
+            f"about to push results, max rms = {self.max_rms} - locations: {locations} - dtype: {type(chunk[0][0])}"
+        )
         self._state.put_result(locations, time)
 
         return True
@@ -145,9 +148,11 @@ class AudioProcessor:
                 continue
 
             # here i shoud highpass filter the block.
+
             block = self._highpass_filter(block)
             rms = self._compute_rms(block)
             active_ch = self._check_thresholds(rms)
+            # print(f"active ch({type(block[0][0])}: {np.where(rms == np.max(rms))}")
 
             if not self._state.call_flag:
                 if np.any(active_ch):
@@ -156,7 +161,7 @@ class AudioProcessor:
                         "New call detected at %.2f s — active channels: %s, rms: %f",
                         timestamp,
                         self.significant_channels,
-                        self.max_rms,
+                        np.max(rms),
                     )
                     self._state.call_flag = True
                     self._state.call_time = timestamp
@@ -188,11 +193,11 @@ class AudioProcessor:
                         timestamp - self._state.call_time,
                         self._state.call_chunk.shape[0],
                     )
-                    if (
-                        self.process()
-                    ):  # is not detecting new calls until process is completed
-                        self._state.call_chunk = np.ndarray([])
-                        self._state.call_flag = False
+
+                    self.process()
+                    # is not detecting new calls until process is completed
+                    self._state.call_chunk = np.ndarray([])
+                    self._state.call_flag = False
 
         logger.info("AudioProcessor loop stopped")
 
