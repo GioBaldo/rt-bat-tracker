@@ -21,8 +21,10 @@ class Event:
         self.sleep_timer = 0
 
     def add_point(self, pos, timestamp):
-        p = Point(pos, timestamp)
+        rel_ts = timestamp - self.start_time_adc
+        p = Point(pos, timestamp, rel_ts)
         self.points.append(p)
+
         return
 
     def update_sleep_timer(self):

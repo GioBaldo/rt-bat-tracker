@@ -4,6 +4,7 @@ import logging
 import numpy as np
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 class Session:
@@ -40,7 +41,7 @@ class Session:
             pos (new point position or None): already validated results [x,y,z] or None
             timestamp (adc timestamp): adc synchronized timestamp
         """
-
+        logger.debug(f"which is passed to the session as: {pos}")
         if pos is None:
             if self.active_event is not None:
                 if (
@@ -59,18 +60,30 @@ class Session:
                 ):
                     self.kill_event()
                     self.new_event(timestamp)
+
             self.active_event.add_point(pos, timestamp)
+            logger.debug(
+                f"and added to the {self.active_event.event_name}, actual points available: {len(self.active_event.points)}"
+            )
             self.active_event.last_call_time = time.monotonic()
 
-    def read_event(self):
-        if self.active_event is not None:
+    def read_event(self, this_event):
+        logger.debug(
+            f"session read requested... active event = None? ({this_event == None})"
+        )
+        if (
+            this_event is not None
+        ):  # this may not work with passed events, need to be adapted
             active_points = []
             ap_colors = []
             all_times = []
-            for p in self.active_event.points:
+            for p in this_event.points:
                 age = (
-                    time.monotonic() - self.active_event.start_time - p.abs_ts
+                    time.monotonic() - p.rel_ts - this_event.start_time
                 )  # this should ensure a timewise consistent plot
+                logger.debug(
+                    f"age: {age} : [ {time.monotonic()} + {this_event.start_time_adc} - {p.rel_ts}]"
+                )
                 if age > 0:
                     op = (
                         max(0, 1 - age / self._state.fade_time)
@@ -82,9 +95,11 @@ class Session:
                     active_points.append(p.pos)
                     ap_colors.append(p.color)
 
-                    all_times.append(p.abs_ts)
+                    all_times.append(p.rel_ts)
                     # not used now but maybe convert to realtive_ts
-            print(f"points: {np.shape(active_points)}, colors: {np.shape(ap_colors)}")
+            logger.debug(
+                f"session is returning points: {np.shape(active_points)}, and colors: {np.shape(ap_colors)}"
+            )
             return active_points, ap_colors, all_times
         else:
             return None, None, None
@@ -94,7 +109,7 @@ class Session:
         of one track, the audio file? some stats about the event?
         """
         # WILL IMPLEMENT ALSO SPECTROGRAM STORE AND OTHER DATA
-        print("killing event!!")
+        logger.info("killing event!!")
         if self.active_event is not None:
             self.active_event.duration = time.monotonic() - self.active_event.start_time
             self.active_event = None

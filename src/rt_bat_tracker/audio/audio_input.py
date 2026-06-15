@@ -20,6 +20,7 @@ import sounddevice as sd
 import soundfile as sf
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 def resolve_input_device(device_arg):
@@ -97,7 +98,7 @@ class RealtimeAudioSource:
         fs=192_000,
         channels=8,
         block_size=2048,
-        dtype="int16",
+        # dtype="int16",
     ):
         self._state = state
         self.device = resolve_input_device(device)
@@ -106,7 +107,7 @@ class RealtimeAudioSource:
         self.block_size = block_size
         self._stream = None
         self._chunknum = 0
-        self.dtype = dtype
+        # self.dtype = dtype
 
     def _callback(self, indata, frames, time_info, status):
         """
@@ -129,16 +130,16 @@ class RealtimeAudioSource:
         until state.stop_event is set.
         Equivalent role to AudioFileSource.start() — both block here.
         """
-        print(f"selected device: {sd.query_devices(self.device)}")
+        logger.info(f"selected device: {sd.query_devices(self.device)}")
         try:
             self._stream = sd.InputStream(
                 device=self.device,
                 samplerate=self.fs,
                 channels=self.channels,
                 blocksize=self.block_size,
-                dtype=self.dtype,
+                # dtype=self.dtype,
                 callback=self._callback,
-                latency="low",
+                # latency="low",
             )
             self._stream.start()
             logger.info(
@@ -306,7 +307,7 @@ def run(state, cfg):
             fs=cfg.fs,
             channels=cfg.channels,
             block_size=cfg.blocksize,
-            dtype="int16",
+            # dtype=cfg.dtype,
         )
     elif cfg.mode == "audiofile":
         source = AudioFileSource(

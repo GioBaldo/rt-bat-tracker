@@ -8,6 +8,7 @@ import time
 import logging
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 def run(state, cfg, session):
@@ -69,17 +70,14 @@ class MainWindow(QMainWindow):
             self._state.gui_running_flag = True
 
         pos, timestamp = self._state.get_result()
-        if pos is None:
-            print("ok POS is NONE")
+        logger.debug(f"GUI received this point: {pos} [timestamp: {timestamp}]")
         self._session.update(pos, timestamp)
 
-        points, colors, all_times = self._session.read_event()
+        points, colors, all_times = self._session.read_event(self._session.active_event)
 
+        # there was some compatibility issue with setData, maybe try to store points differently in the session
         points = np.asarray(points, dtype=np.float32)
         colors = np.asarray(colors, dtype=np.float32)
-
-        print(points.shape, points.dtype)
-        print(colors.shape, colors.dtype)
 
         self._source_plot.setData(pos=points, color=colors)
 

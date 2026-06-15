@@ -32,7 +32,7 @@ class SharedState:
         self.t_start = None
         self.gui_t_start = None
         self.gui_running_flag = False
-        self.fade = False
+        self.fade = True
         self.fade_time = 1
         self.tail_color = np.array([1.0, 1.0, 0.0])
 
