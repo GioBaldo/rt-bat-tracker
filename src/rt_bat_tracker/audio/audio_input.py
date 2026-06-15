@@ -40,6 +40,7 @@ def resolve_input_device(device_arg):
     devices = sd.query_devices()
 
     # Try numeric index first
+
     try:
         device_id = int(device_arg)
         dev = devices[device_id]
@@ -96,7 +97,7 @@ class RealtimeAudioSource:
         fs=192_000,
         channels=8,
         block_size=2048,
-        dtype="float32",
+        dtype="int16",
     ):
         self._state = state
         self.device = resolve_input_device(device)
@@ -118,7 +119,7 @@ class RealtimeAudioSource:
         if status:
 
             pass
-        print(f"time_info: {time_info.inputBufferAdcTime}  indatatype: {type(frames)}")
+
         self._state.put_audio(indata.copy(), time_info.inputBufferAdcTime)
         self._chunknum += 1
 
@@ -128,6 +129,7 @@ class RealtimeAudioSource:
         until state.stop_event is set.
         Equivalent role to AudioFileSource.start() — both block here.
         """
+        print(f"selected device: {sd.query_devices(self.device)}")
         try:
             self._stream = sd.InputStream(
                 device=self.device,
@@ -251,13 +253,13 @@ class AudioFileSource:
             self._state.put_audio(block.copy(), synthetic_timestamp)
             self._chunknum += 1
 
-            logger.debug(
-                "Delivered block %d (samples %d-%d) timestamp %.3f s",
-                idx,
-                start,
-                start + self.block_size,
-                synthetic_timestamp,
-            )
+            # logger.debug(
+            #     "Delivered block %d (samples %d-%d) timestamp %.3f s",
+            #     idx,
+            #     start,
+            #     start + self.block_size,
+            #     synthetic_timestamp,
+            # )
 
             # Drift-corrected sleep:
             # compute when this block *should* have been delivered and sleep

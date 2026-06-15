@@ -1,6 +1,7 @@
 from rt_bat_tracker.utils.event_class import Event
 import time
 import logging
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,7 @@ class Session:
     def read_event(self):
         if self.active_event is not None:
             active_points = []
+            ap_colors = []
             all_times = []
             for p in self.active_event.points:
                 age = (
@@ -71,18 +73,21 @@ class Session:
                 )  # this should ensure a timewise consistent plot
                 if age > 0:
                     op = (
-                        min(0, 1 - age / self._state.fade_time)
+                        max(0, 1 - age / self._state.fade_time)
                         if self._state.fade
                         else 1
                     )
-                    p.color = (self._state.tail_color, op)
+                    p.color = np.append(self._state.tail_color, op)
+
                     active_points.append(p.pos)
+                    ap_colors.append(p.color)
+
                     all_times.append(p.abs_ts)
                     # not used now but maybe convert to realtive_ts
-
-            return active_points, all_times
+            print(f"points: {np.shape(active_points)}, colors: {np.shape(ap_colors)}")
+            return active_points, ap_colors, all_times
         else:
-            return None, None
+            return None, None, None
 
     def kill_event(self):
         """killing an event means placing it in the event list complete of the entire spectrogram

@@ -97,7 +97,7 @@ class AudioProcessor:
         """
         chunk = self._state.call_chunk.copy()
         time = self._state.call_time
-        logger.debug("Processing call queue with %d samples", chunk.shape[0])
+        logger.debug("Processing call chunk with %d samples", chunk.shape[0])
 
         time_delays = calc_multich_delays(
             chunk[:, self.significant_channels], self.cfg.fs
@@ -153,9 +153,10 @@ class AudioProcessor:
                 if np.any(active_ch):
                     self.significant_channels = np.where(active_ch)[0]
                     logger.info(
-                        # "New call detected at %.2f s — active channels: %s",
+                        "New call detected at %.2f s — active channels: %s, rms: %f",
                         timestamp,
                         self.significant_channels,
+                        self.max_rms,
                     )
                     self._state.call_flag = True
                     self._state.call_time = timestamp

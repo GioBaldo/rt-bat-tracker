@@ -73,11 +73,15 @@ class MainWindow(QMainWindow):
             print("ok POS is NONE")
         self._session.update(pos, timestamp)
 
-        points, all_times = self._session.read_event()
+        points, colors, all_times = self._session.read_event()
 
-        # update widgets here
+        points = np.asarray(points, dtype=np.float32)
+        colors = np.asarray(colors, dtype=np.float32)
 
-        self._source_plot.setData(pos=points)
+        print(points.shape, points.dtype)
+        print(colors.shape, colors.dtype)
+
+        self._source_plot.setData(pos=points, color=colors)
 
     def _setup_path_viewer(self, micxyz):
 
