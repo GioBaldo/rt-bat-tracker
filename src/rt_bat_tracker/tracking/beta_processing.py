@@ -47,6 +47,7 @@ class AudioProcessor:
         self.block_size = cfg.blocksize
         self.threshold = cfg.threshold
         self.cfg = cfg
+        self.max_rms = 0
         self.significant_channels = None
 
     def _compute_rms(self, block):
@@ -55,7 +56,11 @@ class AudioProcessor:
         block shape: (block_size, channels)
         returns: (channels,) float32
         """
-        return np.sqrt(np.mean(block**2, axis=0))
+        rms = np.sqrt(np.mean(block**2, axis=0))
+        max = np.max(rms)
+        if max > self.max_rms:
+            self.max_rms = max
+        return rms
 
     def _check_thresholds(self, rms):
         """
@@ -92,7 +97,7 @@ class AudioProcessor:
         """
         chunk = self._state.call_chunk.copy()
         time = self._state.call_time
-        logger.debug("Processing call queue with %d samples", chunk.shape[0])
+        logger.debug("Processing call chunk with %d samples", chunk.shape[0])
 
         time_delays = calc_multich_delays(
             chunk[:, self.significant_channels], self.cfg.fs
@@ -101,7 +106,7 @@ class AudioProcessor:
         locations = tristar_mellen_pachter(
             self._state.micxyz[self.significant_channels], path_diff
         )
-
+        print(f"about tu push results, max rms = {self.max_rms}")
         self._state.put_result(locations, time)
 
         return True
@@ -148,9 +153,10 @@ class AudioProcessor:
                 if np.any(active_ch):
                     self.significant_channels = np.where(active_ch)[0]
                     logger.info(
-                        "New call detected at %.2f s — active channels: %s",
+                        "New call detected at %.2f s — active channels: %s, rms: %f",
                         timestamp,
                         self.significant_channels,
+                        self.max_rms,
                     )
                     self._state.call_flag = True
                     self._state.call_time = timestamp
@@ -169,7 +175,7 @@ class AudioProcessor:
                         self.significant_channels, chs
                     )
                     logger.debug(
-                        "Call updated at %.3f s — significant channels: %s - added channels: %s",
+                        "Call updated at %.6f s — significant channels: %s - added channels: %s",
                         timestamp,
                         self.significant_channels,
                         chs,

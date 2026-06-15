@@ -40,6 +40,7 @@ def resolve_input_device(device_arg):
     devices = sd.query_devices()
 
     # Try numeric index first
+
     try:
         device_id = int(device_arg)
         dev = devices[device_id]
@@ -89,7 +90,15 @@ class RealtimeAudioSource:
     for TDOA calculations without any additional synchronization.
     """
 
-    def __init__(self, state, device=None, fs=192_000, channels=8, block_size=2048):
+    def __init__(
+        self,
+        state,
+        device=None,
+        fs=192_000,
+        channels=8,
+        block_size=2048,
+        dtype="int16",
+    ):
         self._state = state
         self.device = resolve_input_device(device)
         self.fs = fs
@@ -97,6 +106,7 @@ class RealtimeAudioSource:
         self.block_size = block_size
         self._stream = None
         self._chunknum = 0
+        self.dtype = dtype
 
     def _callback(self, indata, frames, time_info, status):
         """
@@ -107,14 +117,9 @@ class RealtimeAudioSource:
         time_info.inputBufferAdcTime: hardware ADC timestamp in seconds
         """
         if status:
-            # Avoid logger here in production — it acquires a Python lock
-            # which can cause priority inversion on the RT thread.
-            # Use a dedicated status queue if you need robust RT-safe logging.
+
             pass
 
-        # Mandatory copy: PortAudio reuses the indata buffer immediately
-        # after this function returns. Without copy, the processing thread
-        # would read data already overwritten by the next block.
         self._state.put_audio(indata.copy(), time_info.inputBufferAdcTime)
         self._chunknum += 1
 
@@ -124,13 +129,14 @@ class RealtimeAudioSource:
         until state.stop_event is set.
         Equivalent role to AudioFileSource.start() — both block here.
         """
+        print(f"selected device: {sd.query_devices(self.device)}")
         try:
             self._stream = sd.InputStream(
                 device=self.device,
                 samplerate=self.fs,
                 channels=self.channels,
                 blocksize=self.block_size,
-                dtype="float32",
+                dtype=self.dtype,
                 callback=self._callback,
                 latency="low",
             )
@@ -247,13 +253,13 @@ class AudioFileSource:
             self._state.put_audio(block.copy(), synthetic_timestamp)
             self._chunknum += 1
 
-            logger.debug(
-                "Delivered block %d (samples %d-%d) timestamp %.3f s",
-                idx,
-                start,
-                start + self.block_size,
-                synthetic_timestamp,
-            )
+            # logger.debug(
+            #     "Delivered block %d (samples %d-%d) timestamp %.3f s",
+            #     idx,
+            #     start,
+            #     start + self.block_size,
+            #     synthetic_timestamp,
+            # )
 
             # Drift-corrected sleep:
             # compute when this block *should* have been delivered and sleep
@@ -300,6 +306,7 @@ def run(state, cfg):
             fs=cfg.fs,
             channels=cfg.channels,
             block_size=cfg.blocksize,
+            dtype="int16",
         )
     elif cfg.mode == "audiofile":
         source = AudioFileSource(

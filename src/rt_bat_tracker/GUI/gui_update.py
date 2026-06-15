@@ -10,7 +10,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def run(state, cfg):
+def run(state, cfg, session):
     from PyQt5.QtWidgets import QApplication
     from PyQt5.QtCore import Qt
 
@@ -20,7 +20,7 @@ def run(state, cfg):
 
     app = QApplication(sys.argv)
 
-    window = MainWindow(state, cfg)
+    window = MainWindow(state, cfg, session)
     window.show()
 
     app.aboutToQuit.connect(state.stop)  # window closed → stops all threads
@@ -30,11 +30,9 @@ def run(state, cfg):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, state, cfg):
+    def __init__(self, state, cfg, session):
         super().__init__()
         import pyqtgraph as pg
-
-        # pg.setConfigOption("qt_lib", "PyQt5")
 
         try:
             loadUi(cfg.GUIpath, self, {"GLViewWidget": gl.GLViewWidget})
@@ -43,8 +41,10 @@ class MainWindow(QMainWindow):
             state.stop(__name__)
             return
 
+        self._session = session
         self._state = state
         self._cfg = cfg
+        self.event = None
         self.timer = int(1000 / self._cfg.update_fps)
         try:
             self._setup_path_viewer(self._state.micxyz)
@@ -59,6 +59,7 @@ class MainWindow(QMainWindow):
 
     def _update(self):
         if self._state.stop_event.isSet():
+            self._session.update(None, None)
             return
         if not self._state.gui_running_flag:
             logger.info(
@@ -67,20 +68,24 @@ class MainWindow(QMainWindow):
             )
             self._state.gui_running_flag = True
 
-        result, timestamp = self._state.get_result()
-        # if result == None or result == []:
-        # print(f"strange result type {type(result)}")
-        # return
+        pos, timestamp = self._state.get_result()
+        if pos is None:
+            print("ok POS is NONE")
+        self._session.update(pos, timestamp)
 
-        newVal = self._state.write_buffer(result, timestamp)
-        points, all_times = self._state.read_buffer()
+        points, colors, all_times = self._session.read_event()
 
-        logger.debug("GUI updated succesfully with new results: %s", type(points))
-        # update widgets here
-        # print(f"new point - delta time: {self._state.elapsed_time() - timestamp}")
-        self._source_plot.setData(pos=points)
+        points = np.asarray(points, dtype=np.float32)
+        colors = np.asarray(colors, dtype=np.float32)
+
+        print(points.shape, points.dtype)
+        print(colors.shape, colors.dtype)
+
+        self._source_plot.setData(pos=points, color=colors)
 
     def _setup_path_viewer(self, micxyz):
+
+        self.setWindowTitle(self._session.session_name)
 
         grid = gl.GLGridItem()
         grid.setSize(20, 20)
