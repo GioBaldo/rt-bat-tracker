@@ -20,22 +20,19 @@ import os
 
 os.environ["SD_ENABLE_ASIO"] = "1"
 os.environ["PYQTGRAPH_QT_LIB"] = "PyQt5"
-import queue
+
+import numpy as np
 import signal
 import sys
-import numpy as np
 import threading
 from omegaconf import OmegaConf
-import pyqtgraph as pg
-import pyqtgraph.opengl as gl
-from pyqtgraph.Qt import QtCore
 import time
 import sounddevice as sd
 
 # ---------------------------------------------------------------------------
 # Import modules
 # ---------------------------------------------------------------------------
-from rt_bat_tracker.utils.cli import parse_args, list_input_devices
+from rt_bat_tracker.utils.cli import parse_args
 from rt_bat_tracker.utils.paths import get_project_paths
 from rt_bat_tracker.utils.session_class import Session
 import rt_bat_tracker.audio.audio_input as audio_input
@@ -75,17 +72,21 @@ logger.addHandler(stream_handler)
 def main():
 
     cfg = OmegaConf.load(projPaths.config_dir / "config.yaml")
-    global micxyz
-    sd.default.device = (cfg.default_device, None)
+
+    sd.default.device = cfg.default_device
+    sd.default.samplerate = cfg.fs
 
     args = parse_args(
         projPaths.audio_dir,
         default_file=cfg.default_file,
         default_device=cfg.default_device,
+        default_mode=cfg.mode,
     )
 
     if args.list_devices:
-        list_input_devices()
+        devices = sd.query_devices()
+        print("Available audio devices:")
+        print(devices)
         return
 
     # pass arg inputs to the cfg dictionary
@@ -104,7 +105,7 @@ def main():
     # --- Signal handler per SIGINT (Ctrl-C) e SIGTERM ---
     def _handle_signal(signum, frame):
         logger.info("Segnale %s ricevuto — shutdown in corso...", signum)
-        state.stop()
+        state.stop(__name__)
 
     signal.signal(signal.SIGINT, _handle_signal)
     signal.signal(signal.SIGTERM, _handle_signal)

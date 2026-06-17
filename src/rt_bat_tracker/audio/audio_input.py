@@ -20,7 +20,7 @@ import sounddevice as sd
 import soundfile as sf
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 def resolve_input_device(device_arg):
@@ -94,10 +94,10 @@ class RealtimeAudioSource:
     def __init__(
         self,
         state,
-        device=None,
-        fs=192_000,
+        device=21,
+        fs=192000,
         channels=8,
-        block_size=2048,
+        block_size=1024,
         dtype="float32",
     ):
         self._state = state
@@ -121,9 +121,9 @@ class RealtimeAudioSource:
 
             pass
         logger.debug(
-            f"AUDIO - Input data type: {type(indata[0][0])} - channels, blocksize: {np.shape(indata)}"
+            f"AUDIO - Input data type: {type(indata[0][0])} - channels, blocksize: {np.shape(indata)} - maxval = {np.max(np.abs(indata))}"
         )
-        self._state.put_audio(indata.copy(), time_info.inputBufferAdcTime)
+        self._state.put_audio(indata.copy(), 0)
         self._chunknum += 1
 
     def start(self):
@@ -134,6 +134,8 @@ class RealtimeAudioSource:
         """
         logger.debug(f"sounddevice specd: {sd._libname}")
         logger.info(f"selected device: {sd.query_devices(self.device)}")
+        logger.debug(f"default device: {sd.default.device}")
+        logger.debug(f"default fs: {sd.default.samplerate}")
         for i, api in enumerate(sd.query_hostapis()):
             logger.info(f"host api: {i}, name {api["name"]}")
         for dtype in ["float32", "int32", "int24", "int16"]:
@@ -144,12 +146,14 @@ class RealtimeAudioSource:
                     samplerate=self.fs,
                     dtype=dtype,
                 )
-                print("OK", dtype)
+                logger.info(f"OK, {dtype}")
                 self.dtype = dtype
                 break
             except Exception as e:
                 print("FAIL", dtype, e)
-
+        logger.info(
+            f"trying to open {sd.query_devices(self.device)['name']} with fs = {self.fs}, blocksize = {self.block_size}, dtype = {self.dtype}"
+        )
         try:
             self._stream = sd.InputStream(
                 device=self.device,
@@ -160,18 +164,18 @@ class RealtimeAudioSource:
                 callback=self._callback,
                 # latency="low",
             )
-            self._stream.start()
-            logger.info(
-                "RealtimeAudioSource started — device=%s fs=%d ch=%d blocksize=%d",
-                self.device,
-                self.fs,
-                self.channels,
-                self.block_size,
-            )
+            with self._stream:
+                # logger.info(
+                #     "RealtimeAudioSource started — device=%s fs=%d ch=%d blocksize=%d",
+                #     self.device,
+                #     self.fs,
+                #     self.channels,
+                #     self.block_size,
+                # )
 
-            # Block the audio thread here until shutdown is requested.
-            # The callback keeps firing independently in PortAudio's thread.
-            self._state.stop_event.wait()
+                # Block the audio thread here until shutdown is requested.
+                # The callback keeps firing independently in PortAudio's thread.
+                self._state.stop_event.wait()
 
         except sd.PortAudioError as e:
             logger.error("PortAudio error: %s", e)
@@ -344,8 +348,13 @@ def run(state, cfg):
         if state.stop_event.isSet():
             logger.info("audio stream never started - exiting audio thread")
             return
+    logger.info(
+        f"stream start soon with dev[{source.device}], fs[{source.fs}], channels[{source.channels}], blocksize[{source.block_size}], data type[{source.dtype}]"
+    )
+    time.sleep(1)
     state.start()
     source.start()  # blocks until stop_event or end of file
+    time.sleep(0.5)
     source.stop()  # cleanup - nothing is actually done by now
 
     logger.info("audio_input.run: exit")

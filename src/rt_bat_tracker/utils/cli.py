@@ -1,4 +1,3 @@
-import sounddevice as sd
 import argparse
 import glob
 import os
@@ -6,7 +5,11 @@ import sys
 
 
 def parse_args(
-    audioFiles_dir, default_file="single_bat_1234.wav", default_device=None, argv=None
+    audioFiles_dir,
+    default_file="single_bat_1234.wav",
+    default_device=None,
+    default_mode="audiofile",
+    argv=None,
 ):
     parser = argparse.ArgumentParser(
         description="Realtime bat tracking from audio input or file."
@@ -36,7 +39,7 @@ def parse_args(
 
     parser.add_argument(
         "--mode",
-        default="audiofile",
+        default=default_mode,
         choices=["realtime", "audiofile"],
         help="Capture mode, default audiofile",
     )
@@ -54,9 +57,3 @@ def parse_args(
         args.file = os.path.join(audioFiles_dir, args.file)
 
     return args
-
-
-def list_input_devices():
-    devices = sd.query_devices()
-    print("Available audio devices:")
-    print(devices)
