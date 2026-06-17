@@ -24,7 +24,7 @@ from rt_bat_tracker.tracking.common_functions import calc_rms, calc_multich_dela
 # from scipy import signal
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 
 # ---------------------------------------------------------------------------
@@ -144,6 +144,7 @@ class AudioProcessor:
             block, timestamp = self._state.get_audio(timeout=0.1)
 
             if block is None:
+                logger.debug("block is None")
                 # Timeout: no new data yet, go back and wait again
                 continue
 
@@ -151,8 +152,8 @@ class AudioProcessor:
 
             block = self._highpass_filter(block)
             rms = self._compute_rms(block)
+            logger.debug(f"channel rms: {self.max_rms} ")
             active_ch = self._check_thresholds(rms)
-            # print(f"active ch({type(block[0][0])}: {np.where(rms == np.max(rms))}")
 
             if not self._state.call_flag:
                 if np.any(active_ch):
