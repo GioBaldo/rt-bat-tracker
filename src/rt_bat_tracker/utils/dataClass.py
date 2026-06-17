@@ -8,6 +8,7 @@ import numpy as np
 from collections import deque
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.WARNING)
 
 
 class SharedState:

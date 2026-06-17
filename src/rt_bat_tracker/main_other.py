@@ -18,6 +18,7 @@ automaticamente se il processo principale muore.
 import logging
 import os
 
+os.environ["SD_ENABLE_ASIO"] = "1"
 os.environ["PYQTGRAPH_QT_LIB"] = "PyQt5"
 import queue
 import signal
@@ -55,7 +56,7 @@ logger = logging.getLogger()  # no name = root
 logger.setLevel(logging.DEBUG)
 
 stream_handler = logging.StreamHandler(sys.stdout)
-stream_handler.setLevel(logging.INFO)
+stream_handler.setLevel(logging.DEBUG)
 stream_handler.setFormatter(
     logging.Formatter("%(threadName)s - %(levelname)s - %(message)s")
 )

@@ -20,7 +20,7 @@ import sounddevice as sd
 import soundfile as sf
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 
 def resolve_input_device(device_arg):
@@ -98,7 +98,7 @@ class RealtimeAudioSource:
         fs=192_000,
         channels=8,
         block_size=2048,
-        # dtype="int16",
+        dtype="float32",
     ):
         self._state = state
         self.device = resolve_input_device(device)
@@ -107,7 +107,7 @@ class RealtimeAudioSource:
         self.block_size = block_size
         self._stream = None
         self._chunknum = 0
-        # self.dtype = dtype
+        self.dtype = dtype
 
     def _callback(self, indata, frames, time_info, status):
         """
@@ -120,7 +120,9 @@ class RealtimeAudioSource:
         if status:
 
             pass
-
+        logger.debug(
+            f"AUDIO - Input data type: {type(indata[0][0])} - channels, blocksize: {np.shape(indata)}"
+        )
         self._state.put_audio(indata.copy(), time_info.inputBufferAdcTime)
         self._chunknum += 1
 
@@ -130,14 +132,31 @@ class RealtimeAudioSource:
         until state.stop_event is set.
         Equivalent role to AudioFileSource.start() — both block here.
         """
+        logger.debug(f"sounddevice specd: {sd._libname}")
         logger.info(f"selected device: {sd.query_devices(self.device)}")
+        for i, api in enumerate(sd.query_hostapis()):
+            logger.info(f"host api: {i}, name {api["name"]}")
+        for dtype in ["float32", "int32", "int24", "int16"]:
+            try:
+                sd.check_input_settings(
+                    device=self.device,
+                    channels=self.channels,
+                    samplerate=self.fs,
+                    dtype=dtype,
+                )
+                print("OK", dtype)
+                self.dtype = dtype
+                break
+            except Exception as e:
+                print("FAIL", dtype, e)
+
         try:
             self._stream = sd.InputStream(
                 device=self.device,
                 samplerate=self.fs,
                 channels=self.channels,
                 blocksize=self.block_size,
-                # dtype=self.dtype,
+                dtype=self.dtype,
                 callback=self._callback,
                 # latency="low",
             )
@@ -307,7 +326,7 @@ def run(state, cfg):
             fs=cfg.fs,
             channels=cfg.channels,
             block_size=cfg.blocksize,
-            # dtype=cfg.dtype,
+            dtype=cfg.dtype,
         )
     elif cfg.mode == "audiofile":
         source = AudioFileSource(
