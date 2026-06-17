@@ -1,0 +1,12 @@
+sounddevice specd: C:\Users\gioba\miniconda3\envs\BAT\Lib\site-packages\_sounddevice_data\portaudio-binaries\libportaudio64bit-asio.dll
+selected device: {'name': 'Focusrite USB ASIO', 'index': 21, 'hostapi': 2, 'max_input_channels': 10, 'max_output_channels': 10, 'default_low_input_latency': 0.023219954648526078, 'default_low_output_latency': 0.023219954648526078, 'default_high_input_latency': 0.023219954648526078, 'default_high_output_latency': 0.023219954648526078, 'default_samplerate': 44100.0}
+default device: [21, 21]
+default fs: 44100.0
+PortAudio error: Error opening InputStream: Unanticipated host error [PaErrorCode -9999]: 'Failed to load ASIO driver' [ASIO error 0]
+
+test-
+
+sounddevice specd: C:\Users\gioba\miniconda3\envs\BAT\Lib\site-packages\_sounddevice_data\portaudio-binaries\libportaudio64bit-asio.dll
+selected device: {'name': 'Focusrite USB ASIO', 'index': 21, 'hostapi': 2, 'max_input_channels': 10, 'max_output_channels': 10, 'default_low_input_latency': 0.023219954648526078, 'default_low_output_latency': 0.023219954648526078, 'default_high_input_latency': 0.023219954648526078, 'default_high_output_latency': 0.023219954648526078, 'default_samplerate': 44100.0}
+default device: [21, 21]
+default fs: None
