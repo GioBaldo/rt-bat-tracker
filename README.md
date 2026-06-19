@@ -13,6 +13,9 @@ rt-bat-tracker is a project that (describe what it does here).
 ## Get started
 ENVIRONMENT:
 BAT_environment.yml
+
+conda create --file BAT_environment.yml
+
 sudo apt-get install libasound-dev libportaudio2 portaudio19-dev
 
 You can install this package into your preferred Python environment using pip:
