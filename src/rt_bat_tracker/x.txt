@@ -1,0 +1,11 @@
+ciaoExpression 'alsa_snd_pcm_hw_params_set_channels( pcm, hwParams, self->numHostChannels )' failed in 'src/hostapi/alsa/pa_linux_alsa.c', line: 2056
+Expression 'PaAlsaStreamComponent_InitialConfigure( &self->capture, inParams, self->primeBuffers, hwParamsCapture, &realSr )' failed in 'src/hostapi/alsa/pa_linux_alsa.c', line: 2718
+
+and the lib is in 
+/usr/share/doc/libasound2-dev
+/usr/share/doc/libasound2-dev
+**** List of CAPTURE Hardware Devices ****
+card 3: Gen [Scarlett 18i20 4th Gen], device 0: USB Audio [USB Audio]
+  Subdevices: 1/1
+  Subdevice #0: subdevice #0
+

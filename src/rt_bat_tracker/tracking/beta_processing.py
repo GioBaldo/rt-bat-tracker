@@ -13,6 +13,7 @@ Entry point for the processing thread: run(state, cfg)
 
 import logging
 import queue
+import time
 
 import numpy as np
 from scipy import signal
@@ -24,7 +25,7 @@ from rt_bat_tracker.tracking.common_functions import calc_rms, calc_multich_dela
 # from scipy import signal
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 # ---------------------------------------------------------------------------
@@ -213,6 +214,11 @@ def run(state, cfg):
     Processing thread entry point — called once by the thread, never loops.
     Instantiates AudioProcessor and runs its loop until shutdown.
     """
+    while not state.gui_running_flag:
+        time.sleep(0.1)
+        if state.stop_event.isSet():
+            logger.info("processing loop never started - exiting processing thread")
+            return
     processor = AudioProcessor(state, cfg)
     processor.run_loop()
     logger.info("processing.run: exit")
