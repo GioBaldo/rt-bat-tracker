@@ -60,12 +60,12 @@ stream_handler.setFormatter(
     logging.Formatter("%(threadName)s - %(levelname)s - %(message)s")
 )
 
-file_handler = logging.FileHandler(projPaths.results_dir / "app.log")
-file_handler.setLevel(logging.DEBUG)
-file_handler.setFormatter(JsonFormatter())
+#file_handler = logging.FileHandler(projPaths.results_dir / "app.log")
+#file_handler.setLevel(logging.DEBUG)
+#file_handler.setFormatter(JsonFormatter())
 
 logger.addHandler(stream_handler)
-logger.addHandler(file_handler)
+#logger.addHandler(file_handler)
 
 # ----------------------------------------------------------------------------
 # Main function
