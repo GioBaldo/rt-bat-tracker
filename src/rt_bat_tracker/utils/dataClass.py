@@ -31,6 +31,7 @@ class SharedState:
         self.dropped_results = 0
 
         self.t_start = None
+        self.audio_stream_t_start = None
         self.gui_t_start = None
         self.gui_running_flag = False
         self.fade = True

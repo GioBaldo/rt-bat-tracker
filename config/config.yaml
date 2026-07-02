@@ -1,7 +1,7 @@
 mode: "alsa"
 
 blocksize: 1024
-fs: 48000
+fs: 192000
 channels: 10
 dtype: "float32"
 default_file: "single_bat_1234.wav"
@@ -9,9 +9,9 @@ default_layout: "single_bat_1234.csv"
 default_device: 1 # 10 WOOOW CABLE Output  (VB-Audio V, MME (16 in, 0 out)
 
 # Tunable parameters
-call_time : 0.001 # minimum call duration in seconds, used to set the minimum size of the call chunk to process
-event_time : 15
-
+MIN_CALL_DURATION: 0.005 # minimum call duration in seconds, set the minimum size of the call chunk to process
+MAX_CALL_DURATION: 0.03 # maximum call duration in seconds, set the maximum size of the call chunk to process
+event_time: 15
 
 # Source detection parameters
 vsound: 340
@@ -27,8 +27,7 @@ results_queue_maxsize: 20
 
 #session parameters
 event_max_sleep_time: 1 # max inactive time before quitting an event
-max_event_time: 10      # max duration of an event
-
+max_event_time: 10 # max duration of an event
 
 # GUI parameters
 update_fps: 10
@@ -40,4 +39,3 @@ logging:
   levels:
     processing: DEBUG
     AudioInput: WARNING
-    

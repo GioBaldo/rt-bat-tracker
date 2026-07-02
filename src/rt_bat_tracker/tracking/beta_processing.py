@@ -25,7 +25,7 @@ from rt_bat_tracker.tracking.common_functions import calc_rms, calc_multich_dela
 # from scipy import signal
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 
 # ---------------------------------------------------------------------------
@@ -50,6 +50,7 @@ class AudioProcessor:
         self.threshold = cfg.threshold
         self.cfg = cfg
         self.max_rms = 0
+        self.max_rms_channel = None
         self.significant_channels = None
 
     def _compute_rms(self, block):
@@ -62,6 +63,7 @@ class AudioProcessor:
         max = np.max(rms)
         if max > self.max_rms:
             self.max_rms = max
+            self.max_rms_channel = np.where(rms == max)[0][0]
         return rms
 
     def _check_thresholds(self, rms):
@@ -123,12 +125,17 @@ class AudioProcessor:
         """
         Main processing loop — runs for the lifetime of the thread.
 
-        get_audio() blocks for up to `timeout` seconds waiting for
-        a new block. During that wait the GIL is released and other
-        threads (GUI, audio callback) run freely — no busy-waiting.
+        Description:
+        At each cycle reads block, timeastamp from the audio queue,
+        then evaluates RMS values for all the channels and checks threshold.
+        RMS are evaluated after a highpass filter is applied to the block.
+        As soon as a channel exceeds the threshold a new call is set
+        and a call_chunk is updated in order to have a 5 - 10 ms audio
+        chunk to be processed.
 
         Returns when state.stop_event is set.
         """
+
         logger.info(
             "AudioProcessor loop started — fs=%d ch=%d blocksize=%d - callFlag %s",
             self.fs,
@@ -146,21 +153,21 @@ class AudioProcessor:
 
             if block is None:
                 logger.debug("block is None")
-                # Timeout: no new data yet, go back and wait again
                 continue
 
-            # here i shoud highpass filter the block.
-
+            # compute rms and check thresholds
             block = self._highpass_filter(block)
             rms = self._compute_rms(block)
-            logger.debug(f"channel rms: {self.max_rms} ")
+            logger.debug(
+                f"channel rms: {self.max_rms} on channel {self.max_rms_channel} "
+            )
             active_ch = self._check_thresholds(rms)
 
             if not self._state.call_flag:
                 if np.any(active_ch):
                     self.significant_channels = np.where(active_ch)[0]
                     logger.info(
-                        "New call detected at %.2f s — active channels: %s, rms: %f",
+                        "New call detected at %.3f s — active channels: %s, rms: %f",
                         timestamp,
                         self.significant_channels,
                         np.max(rms),
@@ -168,40 +175,48 @@ class AudioProcessor:
                     self._state.call_flag = True
                     self._state.call_time = timestamp
                     self._state.call_chunk = block
+                    continue
 
             elif self._state.call_flag == True:
-                if (
-                    np.any(active_ch)
-                    or timestamp - self._state.call_time < self.cfg.call_time
-                ):
-                    self._state.call_chunk = np.append(
-                        self._state.call_chunk, block, axis=0
-                    )
-                    chs = np.where(active_ch)[0]
-                    self.significant_channels = np.union1d(
-                        self.significant_channels, chs
-                    )
-                    logger.debug(
-                        "Call updated at %.6f s — significant channels: %s - added channels: %s",
-                        timestamp,
-                        self.significant_channels,
-                        chs,
-                    )
+                if (timestamp - self._state.call_time) < self.cfg.MAX_CALL_DURATION:
+                    if (
+                        np.any(active_ch)
+                        or timestamp - self._state.call_time
+                        < self.cfg.MIN_CALL_DURATION
+                    ):
+                        self._state.call_chunk = np.append(
+                            self._state.call_chunk, block, axis=0
+                        )
+                        chs = np.where(active_ch)[0]
+                        self.significant_channels = np.union1d(
+                            self.significant_channels, chs
+                        )
+                        logger.debug(
+                            "Call updated at %.3f s — significant channels: %s - added channels: %s",
+                            timestamp,
+                            self.significant_channels,
+                            chs,
+                        )
+                        continue
 
-                elif timestamp - self._state.call_time > self.cfg.call_time:
-                    logger.info(
-                        "Call ended at %.2f s — total duration: %.4f s - samples stored %i -  pushing results to queue",
-                        timestamp,
-                        timestamp - self._state.call_time,
-                        self._state.call_chunk.shape[0],
-                    )
-
+                    # elif timestamp - self._state.call_time > self.cfg.MIN_CALL_DURATION:
+                    #     logger.info(
+                    #         "Call ended at %.2f s — total duration: %.4f s - samples stored %i -  pushing results to queue",
+                    #         timestamp,
+                    #         timestamp - self._state.call_time,
+                    #         self._state.call_chunk.shape[0],
+                    #     )
+                logger.debug(
+                    f"call ended: active channels: {self.significant_channels}, call duration: {timestamp - self._state.call_time:.4f} s, samples stored: {self._state.call_chunk.shape[0]}"
+                )
+                if self.significant_channels.size > 3:
                     self.process()
-                    # is not detecting new calls until process is completed
-                    self._state.call_chunk = np.ndarray([])
-                    self._state.call_flag = False
+
+                self._state.call_chunk = np.ndarray([])
+                self._state.call_flag = False
 
         logger.info("AudioProcessor loop stopped")
+        return
 
 
 # ---------------------------------------------------------------------------
@@ -222,3 +237,4 @@ def run(state, cfg):
     processor = AudioProcessor(state, cfg)
     processor.run_loop()
     logger.info("processing.run: exit")
+    return

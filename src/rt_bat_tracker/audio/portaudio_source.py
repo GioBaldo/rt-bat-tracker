@@ -118,7 +118,7 @@ class PortAudioSource:
         logger.debug(f"default device: {sd.default.device}")
         logger.debug(f"default fs: {sd.default.samplerate}")
         for i, api in enumerate(sd.query_hostapis()):
-            logger.info(f"host api: {i}, name {api["name"]}")
+            logger.info(f"host api: {i}, name: {api['name']}")
         for dtype in ["float32", "int32", "int24", "int16"]:
             try:
                 sd.check_input_settings(
@@ -132,9 +132,9 @@ class PortAudioSource:
                 break
             except Exception as e:
                 print("FAIL", dtype, e)
-        logger.info(
-            f"trying to open {sd.query_devices(self.device)['name']} with fs = {self.fs}, blocksize = {self.block_size}, dtype = {self.dtype}"
-        )
+        # logger.info(
+        #     f"trying to open {sd.query_devices(self.device)['name']} with fs = {self.fs}, blocksize = {self.block_size}, dtype = {self.dtype}"
+        # )
         try:
             self._stream = sd.InputStream(
                 device=self.device,
