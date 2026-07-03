@@ -54,7 +54,7 @@ class MainWindow(QMainWindow):
             state.stop(__name__)
 
         self._poller = QTimer(self)
-        self._poller.setInterval(self.timer)  # 20fps
+        self._poller.setInterval(self.timer)
         self._poller.timeout.connect(self._update)
         self._poller.start()
 

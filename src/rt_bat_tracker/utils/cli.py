@@ -51,6 +51,14 @@ def parse_args(
         help="Select file to use in audiofile mode",
     )
 
+    parser.add_argument(
+        "--beep",
+        nargs=3,
+        type=int,
+        help="Play a beep sound to test the audio output: "
+        "[duration in ms, frequency in Hertz, rate in beeps per second], default [5, 30000, 1]",
+    )
+
     args = parser.parse_args(argv)
 
     if args.file is not None:
