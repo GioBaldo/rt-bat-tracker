@@ -6,7 +6,7 @@ import time
 import logging
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 class AlsaAudioSource:
@@ -149,11 +149,11 @@ class AlsaAudioSource:
 
     def compute_max(self, x):
         mag = []
-        thr = 0.01
+        thr = 0.05
         m = np.max(x.astype(np.float32), axis=0)
         for i in m:
             if i > thr:
-                mag.append("A")
+                mag.append(int(i * 10000))
             else:
                 mag.append("_")
         return mag

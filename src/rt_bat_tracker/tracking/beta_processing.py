@@ -50,6 +50,8 @@ class AudioProcessor:
         self.threshold = cfg.threshold
         self.cfg = cfg
         self.max_rms = 0
+        self.avg_rms = 0
+        self.blocks_received = 0
         self.max_rms_channel = None
         self.significant_channels = None
 
@@ -61,6 +63,10 @@ class AudioProcessor:
         """
         rms = np.sqrt(np.mean(block**2, axis=0))
         max = np.max(rms)
+        self.blocks_received += 1
+        self.avg_rms = (
+            self.avg_rms * (self.blocks_received - 1) + max
+        ) / self.blocks_received
         if max > self.max_rms:
             self.max_rms = max
             self.max_rms_channel = np.where(rms == max)[0][0]
@@ -236,5 +242,10 @@ def run(state, cfg):
             return
     processor = AudioProcessor(state, cfg)
     processor.run_loop()
-    logger.info("processing.run: exit")
+    logger.info(
+        "processing.run: exit . STATS[max_rms: %.4f, avg_rms: %.4f, blocks_received: %d]",
+        processor.max_rms,
+        processor.avg_rms,
+        processor.blocks_received,
+    )
     return

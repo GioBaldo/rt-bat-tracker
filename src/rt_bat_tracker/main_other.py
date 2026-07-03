@@ -19,7 +19,7 @@ import logging
 import os
 
 os.environ["SD_ENABLE_ASIO"] = "1"
-#os.environ["PYQTGRAPH_QT_LIB"] = "PyQt5"
+# os.environ["PYQTGRAPH_QT_LIB"] = "PyQt5"
 
 import numpy as np
 import signal
@@ -63,7 +63,7 @@ stream_handler.setFormatter(
 # file_handler.setFormatter(JsonFormatter())
 
 logger.addHandler(stream_handler)
-#logger.addHandler(file_handler)
+# logger.addHandler(file_handler)
 
 # ----------------------------------------------------------------------------
 # Main function
@@ -132,6 +132,14 @@ def main():
 
     proc_thread.start()
     logger.info("Thread Processing avviato  (tid=%d)", proc_thread.ident)
+
+    if args.beep:
+        from rt_bat_tracker.audio.play_tone import PlayTone
+
+        tone_player = PlayTone(state, cfg)
+        tone_player.play(
+            frequency=args.beep[0], duration=args.beep[1], rate=args.beep[2]
+        )
 
     # --- GUI nel main thread (requisito Qt) ---
     # QApplication deve essere creata nel main thread.
