@@ -7,7 +7,7 @@ import sys
 import time
 import logging
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("GUIUPDATE")
 logger.setLevel(logging.INFO)
 
 
@@ -24,7 +24,7 @@ def run(state, cfg, session):
     window = MainWindow(state, cfg, session)
     window.show()
 
-    app.aboutToQuit.connect(state.stop)  # window closed → stops all threads
+    app.aboutToQuit.connect(window.stop)  # window closed → stops all threads
 
     app.exec_()  # blocks until window closes
     state.gui_running_flag = False
@@ -61,6 +61,7 @@ class MainWindow(QMainWindow):
     def _update(self):
         if self._state.stop_event.isSet():
             self._session.update(None, None)
+            self._session.kill_event()
             return
         if not self._state.gui_running_flag:
             logger.info(
@@ -72,6 +73,8 @@ class MainWindow(QMainWindow):
         pos, timestamp = self._state.get_result()
         logger.debug(f"GUI received this point: {pos} [timestamp: {timestamp}]")
         self._session.update(pos, timestamp)
+
+        self._session.write_audiofile()
 
         points, colors, all_times = self._session.read_event(self._session.active_event)
 
@@ -105,3 +108,9 @@ class MainWindow(QMainWindow):
         self.pathViewer.addItem(self._source_plot)
 
         self.pathViewer.setCameraPosition(distance=20, azimuth=-50, elevation=30)
+
+    def stop(self):
+        print("STOOOOP!!!!")
+        self._session.kill_event()
+        self._state.stop(__name__)
+        self._poller.stop()

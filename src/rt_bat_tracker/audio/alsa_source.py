@@ -6,7 +6,7 @@ import time
 import logging
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.WARNING)
 
 
 class AlsaAudioSource:

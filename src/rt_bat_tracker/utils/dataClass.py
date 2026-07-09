@@ -8,7 +8,7 @@ import numpy as np
 from collections import deque
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 
 class SharedState:
@@ -18,7 +18,7 @@ class SharedState:
         self.audio_queue = queue.Queue(maxsize=cfg.audio_queue_maxsize)
         self.result_queue = queue.Queue(maxsize=cfg.results_queue_maxsize)
 
-        self.gui_buffer = deque(maxlen=cfg.buffer_length)
+        self.event_wav_buffer = deque(maxlen=cfg.event_wav_buffer_maxsize)
         self.buffer_lock = threading.Lock()
 
         self.call_chunk = np.ndarray([])
@@ -105,8 +105,13 @@ class SharedState:
             logger.debug("Empty results queue, timeout after %.1f s", timeout)
             return None, None
 
-    def read_buffer(self):
+    def write_wav_buffer(self, block):
+        logger.debug(f"writing wav_buffer with {np.shape(block)} samples")
         with self.buffer_lock:
-            all_points = np.array([p[0] for p in self.gui_buffer])
-            all_times = np.array([p[1] for p in self.gui_buffer])
-        return all_points, all_times
+            self.event_wav_buffer.append((block))
+
+    def grab_wav_buffer(self):
+        with self.buffer_lock:
+            items = list(self.event_wav_buffer)
+            self.event_wav_buffer.clear()
+        return items
