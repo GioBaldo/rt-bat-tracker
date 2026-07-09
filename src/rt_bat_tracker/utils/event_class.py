@@ -14,12 +14,12 @@ class Event:
         # IMPORTANT: time_adc must be used for sample alignment
         self.start_time_adc = start_time
         # IMPORTANT: time is used for timers. they are slightly different
-        self.start_time = time.monotonic() #(local time)
+        self.start_time = time.monotonic()  # (local time)
         self.event_name = f"Event {idx}"
         self.duration = None
         self.last_call_time = start_time
-
         self.sleep_timer = 0
+        self.audio_file = []
 
     def add_point(self, pos, timestamp):
         rel_ts = timestamp - self.start_time_adc
@@ -35,4 +35,4 @@ class Event:
         return
 
     def terminate_event(self):
-        self.duration = time.monotonic - self.start_time
+        self.duration = time.monotonic() - self.start_time

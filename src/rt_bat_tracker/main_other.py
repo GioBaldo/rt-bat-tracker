@@ -55,8 +55,9 @@ logger.setLevel(logging.DEBUG)
 stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setLevel(logging.DEBUG)
 stream_handler.setFormatter(
-    logging.Formatter("%(threadName)s - %(levelname)s - %(message)s")
+    logging.Formatter("%(threadName)s - %(levelname)s - %(name)s - %(message)s")
 )
+
 
 # file_handler = logging.FileHandler(projPaths.results_dir / "app.log")
 # file_handler.setLevel(logging.DEBUG)
@@ -100,7 +101,7 @@ def main():
 
     # initialize util classes
     state = SharedState(cfg)
-    session = Session(cfg, state, "First Session")
+    session = Session(cfg, state, projPaths)
 
     # --- Signal handler per SIGINT (Ctrl-C) e SIGTERM ---
     def _handle_signal(signum, frame):
@@ -137,9 +138,13 @@ def main():
         from rt_bat_tracker.audio.play_tone import PlayTone
 
         tone_player = PlayTone(state, cfg)
-        tone_player.play(
-            frequency=args.beep[0], duration=args.beep[1], rate=args.beep[2]
+        playback_thread = threading.Thread(
+            target=tone_player.play,
+            args=(args.beep[0], args.beep[1] * 1000, args.beep[2]),
+            name="Playback",
+            daemon=True,
         )
+        playback_thread.start()
 
     # --- GUI nel main thread (requisito Qt) ---
     # QApplication deve essere creata nel main thread.

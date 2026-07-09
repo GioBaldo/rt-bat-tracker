@@ -25,7 +25,7 @@ from rt_bat_tracker.tracking.common_functions import calc_rms, calc_multich_dela
 # from scipy import signal
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 # ---------------------------------------------------------------------------
@@ -163,10 +163,16 @@ class AudioProcessor:
 
             # compute rms and check thresholds
             block = self._highpass_filter(block)
+
+            # put HP block in the event audio queue for later saving
+            self._state.write_wav_buffer(block)
+
             rms = self._compute_rms(block)
             logger.debug(
-                f"channel rms: {self.max_rms} on channel {self.max_rms_channel} "
+                f"channel rms: {np.max(rms)} on channel {np.where(rms == np.max(rms))[0][0]} "
             )
+
+            # compares rms values with thresholds to identify active channels
             active_ch = self._check_thresholds(rms)
 
             if not self._state.call_flag:

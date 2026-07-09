@@ -15,7 +15,7 @@ event_time: 15
 
 # Source detection parameters
 vsound: 340
-threshold: 0.02
+threshold: 0.01
 
 # Butterworth highpass filter parameters
 filter_order: 1
@@ -24,6 +24,7 @@ cutoff_freq: 10000
 # Queue parameters - adjust if some chunks are being dropped
 audio_queue_maxsize: 40
 results_queue_maxsize: 20
+event_wav_buffer_maxsize: 50 # .25 sec at 1024 blocksize. (pre-record)
 
 #session parameters
 event_max_sleep_time: 1 # max inactive time before quitting an event
