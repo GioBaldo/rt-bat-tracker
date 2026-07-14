@@ -28,7 +28,6 @@ class Session:
         self.start_time = time.monotonic()
 
         self.wav_path = Path(self.results_path / self.session_name)
-        self.wav_path.mkdir()
 
     def new_event(self, timestamp):
         event = Event(str(len(self.event_list) + 1), timestamp)
@@ -47,7 +46,7 @@ class Session:
             pos (new point position or None): already validated results [x,y,z] or None
             timestamp (adc timestamp): adc synchronized timestamp
         """
-        logger.debug(f"which is passed to the session as: {pos}")
+        logger.debug(f"results positions is passed to the session as: {pos}")
         if pos is None:
             if self.active_event is not None:
                 if (
@@ -70,8 +69,8 @@ class Session:
 
             # add the new point to the active event
             self.active_event.add_point(pos, timestamp)
-            logger.debug(
-                f"and added to the {self.active_event.event_name}, actual points available: {len(self.active_event.points)}"
+            logger.info(
+                f"Point added to {self.active_event.event_name}, points stored: {len(self.active_event.points)}"
             )
             self.active_event.last_call_time = time.monotonic()
 
@@ -121,7 +120,9 @@ class Session:
         if self.active_event is not None:
             logger.info(f"killing event: {self.active_event.event_name}")
             self.active_event.terminate_event()
-            self.save_wav_file()
+            if self._cfg.SAVE_RESULTS:
+                self.wav_path.mkdir()
+                self.save_wav_file()
             self.active_event = None
         else:
             logger.info("No active events to be killed")
@@ -130,21 +131,49 @@ class Session:
         """if an event is active stores the waveforms of all channels to be saved in a file at the oend of the event
         [Storing also the timestamp could be useful for further analysis, like identifying the exact point related to the
         call in the audiofile. Will implement this later]
+        When new audio data are collected, they are processed via fft to obtain tha spectrogram, also stored in the event
         """
-        logger.debug("writing audiofile")
+        logger.debug(f"writing audiofile to active event {self.active_event} ")
         if self.active_event is not None:
             data = self._state.grab_wav_buffer()
+
             logger.debug(
-                f"about to append data: [{np.shape(data)[0]}] to the audio_file: [{np.shape(self.active_event.audio_file)}]"
+                f"about to append data: ({np.shape(data)[0]}) [{type(data)}] to the audio_file: [{np.shape(self.active_event.audio_file)}]"
             )
+            self.update_spectrogram(data, 0)  # performing spectrogram on ch 0 only
+
             for i in range(np.shape(data)[0]):
                 self.active_event.audio_file.append(data[i])
 
     def save_wav_file(self):
-        logger.info(
-            f"saving audio file for {self.active_event.event_name} at {path} with shape {np.shape(self.active_event.audio_file)}"
-        )
 
         path = self.wav_path / f"{self.active_event.event_name}.wav"
 
+        logger.info(
+            f"saving audio file for {self.active_event.event_name} at {path} with shape {np.shape(self.active_event.audio_file)}"
+        )
         sf.write(path, np.vstack(self.active_event.audio_file), self._cfg.fs)
+
+    def update_spectrogram(self, data, ch):
+        """
+        perform fft on one channel and save the (samples, bins) np.array of np.float16 in the event spectrogram
+        """
+        taim = time.perf_counter_ns()
+        data = np.array(data)
+        signal = data[:, :, ch].reshape(-1)
+        NFFT = self._cfg.WINDOW_SIZE
+        HOP = self._cfg.HOP_SIZE
+        window = np.hanning(NFFT)
+        logger.debug(
+            f"performing fft on data {np.shape(signal)}, NFFT[{NFFT}], HOPSIZE[{HOP}] "
+        )
+        for start in range(0, len(signal) - NFFT, HOP):
+            frame = signal[start : start + NFFT]
+            frame = frame * window
+            spectrum = np.fft.rfft(frame)
+            magnitude = np.abs(spectrum).astype(np.float16)
+            # magnitude_db = 20 * np.log10(magnitude, 1e-12)
+            self.active_event.spectrogram.append(magnitude)
+        logger.debug(
+            f"updated fft: actual size [{np.shape(self.active_event.spectrogram)} type {type(magnitude[1])} took {time.perf_counter_ns() - taim} nanosec]"
+        )

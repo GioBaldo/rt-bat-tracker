@@ -24,7 +24,7 @@
      </rect>
     </property>
    </widget>
-   <widget class="GLViewWidget" name="specViewer">
+   <widget class="PlotWidget" name="specViewer">
     <property name="geometry">
      <rect>
       <x>10</x>
@@ -71,11 +71,17 @@
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
  <customwidgets>
-  <customwidget>
-   <class>GLViewWidget</class>
-   <extends>QOpenGLWidget</extends>
-   <header location="global">pyqtgraph.opengl</header>
-  </customwidget>
+    <customwidget>
+        <class>GLViewWidget</class>
+        <extends>QOpenGLWidget</extends>
+        <header location="global">pyqtgraph.opengl</header>
+    </customwidget>
+
+    <customwidget>
+        <class>PlotWidget</class>
+        <extends>QWidget</extends>
+        <header location="global">pyqtgraph</header>
+    </customwidget>
  </customwidgets>
  <resources/>
  <connections/>

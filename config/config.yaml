@@ -1,21 +1,22 @@
 mode: "alsa"
+SAVE_RESULTS: False
 
 blocksize: 1024
 fs: 192000
 channels: 10
 dtype: "float32"
 default_file: "single_bat_1234.wav"
-default_layout: "test_layout.csv"
+default_layout: "test_layout.csv" # "single_bat_1234.csv"
 default_device: 1 # 10 WOOOW CABLE Output  (VB-Audio V, MME (16 in, 0 out)
 
 # Tunable parameters
-MIN_CALL_DURATION: 0.005 # minimum call duration in seconds, set the minimum size of the call chunk to process
+MIN_CALL_DURATION: 0.012 # minimum call duration in seconds, set the minimum size of the call chunk to process
 MAX_CALL_DURATION: 0.03 # maximum call duration in seconds, set the maximum size of the call chunk to process
 event_time: 15
 
 # Source detection parameters
 vsound: 340
-threshold: 0.01
+threshold: 0.03
 
 # Butterworth highpass filter parameters
 filter_order: 1
@@ -31,8 +32,17 @@ event_max_sleep_time: 1 # max inactive time before quitting an event
 max_event_time: 10 # max duration of an event
 
 # GUI parameters
-update_fps: 10
+update_fps: 25
 buffer_length: 10
+
+# FFT prameters
+WINDOW_SIZE: 256
+HOP_SIZE: 256
+FREQUENCY_SCALE: "log" # linear, mel
+FREQUENCY_RANGE: [5000, 90000]
+TIME_AXIS: 1 #seconds displayed
+ENHANCE_MAGNITUDE: 1
+COLOR: (100, 127, 50)
 
 #logging
 logging:

@@ -1,6 +1,7 @@
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5.QtCore import QTimer
 from PyQt5.uic import loadUi
+import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 import numpy as np
 import sys
@@ -36,19 +37,31 @@ class MainWindow(QMainWindow):
         import pyqtgraph as pg
 
         try:
-            loadUi(cfg.GUIpath, self, {"GLViewWidget": gl.GLViewWidget})
+            loadUi(
+                cfg.GUIpath,
+                self,
+                {
+                    "GLViewWidget": gl.GLViewWidget,
+                    "PlotWidget": pg.PlotWidget,
+                    "GraphicsLayoutWidget": pg.GraphicsLayoutWidget,
+                },
+            )
+
         except Exception as e:
-            logger.error("unable to open the GUI Layout: %s \n ", cfg.GUIpath, e)
+            logger.error("unable to open the GUI Layout: %s \n%s ", cfg.GUIpath, e)
             state.stop(__name__)
             return
 
         self._session = session
         self._state = state
         self._cfg = cfg
-        self.event = None
+        # self.event = None
         self.timer = int(1000 / self._cfg.update_fps)
+        self.setWindowTitle(self._session.session_name)
+
         try:
             self._setup_path_viewer(self._state.micxyz)
+            self._setup_spec_viewer()
         except Exception as e:
             logger.error("unable to initialize pathViewer: ", e)
             state.stop(__name__)
@@ -61,7 +74,7 @@ class MainWindow(QMainWindow):
     def _update(self):
         if self._state.stop_event.isSet():
             self._session.update(None, None)
-            self._session.kill_event()
+            self.stop()
             return
         if not self._state.gui_running_flag:
             logger.info(
@@ -70,27 +83,34 @@ class MainWindow(QMainWindow):
             )
             self._state.gui_running_flag = True
 
+        self._session.write_audiofile()
+        self._update_path_viewer()
+        self._update_spec_viewer()
+
+    def _update_path_viewer(self):
+        """
+        takes results from the queue
+        updates the session/event adding new points
+        plots all the points existing in the event by now
+        """
         pos, timestamp = self._state.get_result()
         logger.debug(f"GUI received this point: {pos} [timestamp: {timestamp}]")
         self._session.update(pos, timestamp)
-
-        self._session.write_audiofile()
-
         points, colors, all_times = self._session.read_event(self._session.active_event)
-
         # there was some compatibility issue with setData, maybe try to store points differently in the session
         points = np.asarray(points, dtype=np.float32)
         colors = np.asarray(colors, dtype=np.float32)
-
         self._source_plot.setData(pos=points, color=colors)
 
     def _setup_path_viewer(self, micxyz):
-
-        self.setWindowTitle(self._session.session_name)
+        """
+        initializes the main graph that plots the real time position of the bat tracked
+        is then updated in update function
+        """
 
         grid = gl.GLGridItem()
         grid.setSize(20, 20)
-        grid.setSpacing(1, 1)
+        grid.setSpacing(0.5, 0.5)
         self.pathViewer.addItem(grid)
 
         self._mic_plot = gl.GLScatterPlotItem(
@@ -109,8 +129,52 @@ class MainWindow(QMainWindow):
 
         self.pathViewer.setCameraPosition(distance=20, azimuth=-50, elevation=30)
 
+    def _update_spec_viewer(self):
+        if self._session.active_event is not None:
+            ev = self._session.active_event
+            available_data = min(len(ev.spectrogram), np.shape(self.spec_image_data)[1])
+
+            if available_data > 0:
+                self.spec_image_data.fill(0)
+                data = np.array(ev.spectrogram[-available_data:], dtype=np.uint8)
+                self.spec_image_data[:, :available_data] = data.T
+
+                self.spectrogram.setImage(
+                    self.spec_image_data,
+                )
+
+    def _setup_spec_viewer(self):
+
+        spec_image_height = 129
+        spec_image_width = 500  # 1081
+        self.spec_image_data = np.zeros(
+            (spec_image_height, spec_image_width), dtype=np.uint8
+        )
+
+        self.spectrogram = pg.ImageItem()
+
+        self.specViewer.addItem(self.spectrogram)
+
+        self.spectrogram.setImage(self.spec_image_data)  # correct levels in case
+
+        self.spectrogram.setOpts(axisOrder="row-major")  # or col-major
+
+        axis = self.specViewer.getAxis("left")
+
+        axis.setTicks(
+            [
+                [
+                    (0, "10k"),
+                    (64, "50k"),
+                    (128, "90k"),
+                ]
+            ]
+        )
+
     def stop(self):
         print("STOOOOP!!!!")
         self._session.kill_event()
         self._state.stop(__name__)
         self._poller.stop()
+        time.sleep(2)
+        QApplication.quit()
