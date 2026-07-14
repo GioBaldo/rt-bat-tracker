@@ -107,18 +107,24 @@ class AudioProcessor:
         """
         chunk = self._state.call_chunk.copy()
         time = self._state.call_time
-        logger.debug("Processing call chunk with %d samples", chunk.shape[0])
+        logger.debug(
+            f"Processing call chunk with {chunk.shape} samples, array type: {type(chunk)}, sample type: {type(chunk[0][0])}"
+        )
 
         time_delays = calc_multich_delays(
             chunk[:, self.significant_channels], self.cfg.fs
         )
+
         path_diff = time_delays * self.cfg.vsound
         locations = tristar_mellen_pachter(
             self._state.micxyz[self.significant_channels], path_diff
         )
-        logger.debug(
+        logger.info(
             f"about to push results, max rms = {self.max_rms} - locations: {locations} - dtype: {type(chunk[0][0])}"
         )
+        if len(locations) == 0 & len(time_delays) != 0:
+            logger.error("ERROR! TRYING TO COMPUTE TDOA WITH THE WRONG MIC LAYOUT")
+
         self._state.put_result(locations, time)
 
         return True
@@ -161,8 +167,9 @@ class AudioProcessor:
                 logger.debug("block is None")
                 continue
 
-            # compute rms and check thresholds
+            # highpassfilter to remove useless low end
             block = self._highpass_filter(block)
+            # here data are implicitly converted from np.float32 to np.float64
 
             # put HP block in the event audio queue for later saving
             self._state.write_wav_buffer(block)

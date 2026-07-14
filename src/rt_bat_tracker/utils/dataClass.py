@@ -8,7 +8,7 @@ import numpy as np
 from collections import deque
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 class SharedState:
@@ -106,11 +106,22 @@ class SharedState:
             return None, None
 
     def write_wav_buffer(self, block):
+        """
+        called from processing, writes blocks in a deque buffer.
+        if data are not grabbed from session older ones are dropped
+
+        Args:
+            block (np.array): shape [blocksize, channels]
+        """
         logger.debug(f"writing wav_buffer with {np.shape(block)} samples")
         with self.buffer_lock:
             self.event_wav_buffer.append((block))
 
     def grab_wav_buffer(self):
+        """
+        returns frames stored in the buffer since the last grab
+        as <list> of elements [blocksize, channels]
+        """
         with self.buffer_lock:
             items = list(self.event_wav_buffer)
             self.event_wav_buffer.clear()

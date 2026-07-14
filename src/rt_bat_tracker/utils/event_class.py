@@ -20,6 +20,7 @@ class Event:
         self.last_call_time = start_time
         self.sleep_timer = 0
         self.audio_file = []
+        self.spectrogram = []
 
     def add_point(self, pos, timestamp):
         rel_ts = timestamp - self.start_time_adc

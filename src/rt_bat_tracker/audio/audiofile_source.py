@@ -1,4 +1,10 @@
 import soundfile as sf
+import numpy as np
+import logging
+import time
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 class AudioFileSource:
@@ -19,7 +25,8 @@ class AudioFileSource:
 
     def __init__(self, state, file_path, block_size=2048, loaded_durn=None):
         self._state = state
-        self.block_size = block_size
+        self.device = file_path
+        self.blocksize = block_size
         self._chunknum = 0
 
         # Load audio file (optionally truncated to loaded_durn seconds)
@@ -32,14 +39,15 @@ class AudioFileSource:
         # always_2d=True guarantees shape (samples, channels) even for mono files
 
         # Duration of one block in seconds — the pacing interval
-        self._block_duration = block_size / self.fs
+        self._block_duration = self.blocksize / self.fs
+        self.channels = self.audio.shape[1]
 
         logger.info(
             "AudioFileSource ready — file=%s fs=%d samples=%d channels=%d",
             file_path,
             self.fs,
             self.audio.shape[0],
-            self.audio.shape[1],
+            self.channels,
         )
 
     def start(self):
@@ -64,13 +72,14 @@ class AudioFileSource:
         )
 
         for idx, start in enumerate(
-            range(0, total_samples - self.block_size, self.block_size)
+            range(0, total_samples - self.blocksize, self.blocksize)
         ):
 
             if self._state.stop_event.is_set():
                 break
 
-            block = self.audio[start : start + self.block_size, :]
+            b = self.audio[start : start + self.blocksize, :]
+            block = np.array(b, dtype=np.float32)
 
             # Synthetic ADC timestamp: position in file expressed in seconds.
             # Matches the role of time_info.inputBufferAdcTime in the realtime source.

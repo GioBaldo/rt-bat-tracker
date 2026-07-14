@@ -18,7 +18,7 @@ import os
 import numpy as np
 import sounddevice as sd
 import soundfile as sf
-from rt_bat_tracker.audio.alsa_source import AlsaAudioSource 
+from rt_bat_tracker.audio.alsa_source import AlsaAudioSource
 from rt_bat_tracker.audio.portaudio_source import PortAudioSource
 from rt_bat_tracker.audio.audiofile_source import AudioFileSource
 
@@ -28,6 +28,7 @@ logger.setLevel(logging.DEBUG)
 # ---------------------------------------------------------------------------
 # Audio thread entry point
 # ---------------------------------------------------------------------------
+
 
 def run(state, cfg):
     """
@@ -50,7 +51,9 @@ def run(state, cfg):
         )
 
     elif cfg.mode == "alsa":
-        source = AlsaAudioSource(state)#, device=cfg.device, fs=cfg.fs, channels=cfg.channels, blocksize=cfg.blocksize)
+        source = AlsaAudioSource(
+            state
+        )  # , device=cfg.device, fs=cfg.fs, channels=cfg.channels, blocksize=cfg.blocksize)
 
     elif cfg.mode == "audiofile":
         source = AudioFileSource(
@@ -79,7 +82,7 @@ def run(state, cfg):
     time.sleep(1)
     state.start()
     e = source.start()  # blocks until stop_event or end of file
-    if e is not None:   # if e is None means that the stop wa requested by another thread
-        state.stop(e)   # otherwise e is the name of the source which requested the stop
-    
+    if e is not None:  # if e is None means that the stop wa requested by another thread
+        state.stop(e)  # otherwise e is the name of the source which requested the stop
+
     logger.info("audio_input.run: exit")
