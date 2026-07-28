@@ -47,10 +47,8 @@ class AudioProcessor:
         self.fs = cfg.fs
         self.channels = cfg.channels
         self.block_size = cfg.blocksize
-        self.threshold = cfg.threshold
         self.cfg = cfg
-        self.max_rms = 0
-        self.avg_rms = 0
+
         self.blocks_received = 0
         self.max_rms_channel = None
         self.significant_channels = None
@@ -64,11 +62,11 @@ class AudioProcessor:
         rms = np.sqrt(np.mean(block**2, axis=0))
         max = np.max(rms)
         self.blocks_received += 1
-        self.avg_rms = (
-            self.avg_rms * (self.blocks_received - 1) + max
+        self._state.avg_rms = (
+            self._state.avg_rms * (self.blocks_received - 1) + max
         ) / self.blocks_received
-        if max > self.max_rms:
-            self.max_rms = max
+        if max > self._state.max_rms:
+            self._state.max_rms = max
             self.max_rms_channel = np.where(rms == max)[0][0]
         return rms
 
@@ -77,7 +75,7 @@ class AudioProcessor:
         Boolean mask of channels exceeding the threshold.
         returns: (channels,) bool
         """
-        return rms > self.threshold
+        return rms > self._state.threshold
 
     def _compute_peak(self, block):
         """
@@ -120,7 +118,7 @@ class AudioProcessor:
             self._state.micxyz[self.significant_channels], path_diff
         )
         logger.info(
-            f"about to push results, max rms = {self.max_rms} - locations: {locations} - dtype: {type(chunk[0][0])}"
+            f"about to push results, max rms = {self._state.max_rms} - locations: {locations} - dtype: {type(chunk[0][0])}"
         )
         if len(locations) == 0 & len(time_delays) != 0:
             logger.error("ERROR! TRYING TO COMPUTE TDOA WITH THE WRONG MIC LAYOUT")
@@ -257,8 +255,8 @@ def run(state, cfg):
     processor.run_loop()
     logger.info(
         "processing.run: exit . STATS[max_rms: %.4f, avg_rms: %.4f, blocks_received: %d]",
-        processor.max_rms,
-        processor.avg_rms,
+        state.max_rms,
+        state.avg_rms,
         processor.blocks_received,
     )
     return

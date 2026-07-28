@@ -18,6 +18,8 @@ class SharedState:
         self.audio_queue = queue.Queue(maxsize=cfg.audio_queue_maxsize)
         self.result_queue = queue.Queue(maxsize=cfg.results_queue_maxsize)
 
+        self.threshold = cfg.threshold
+
         self.event_wav_buffer = deque(maxlen=cfg.event_wav_buffer_maxsize)
         self.buffer_lock = threading.Lock()
 
@@ -29,6 +31,9 @@ class SharedState:
 
         self.dropped_audio = 0
         self.dropped_results = 0
+
+        self.max_rms = 0
+        self.avg_rms = 0
 
         self.t_start = None
         self.audio_stream_t_start = None

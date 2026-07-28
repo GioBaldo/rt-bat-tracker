@@ -31,17 +31,17 @@ def tristar_mellen_pachter(*args):
     which only outputs positive y axis sources.
     """
     sources = mellen_pachter_raquet_2003(*args)
-    # print('sources:', sources)
+    print("sources:", sources)
     infront_of_array = []
     if sources.size > 3:
         for each in sources:
             x, y, z = each
-            if y >= 0:
+            if x >= 0:
                 infront_of_array.append(each)
     elif sources.size == 3:
         x, y, z = sources
 
-        if x >= 0:
+        if z >= 0:
             infront_of_array.append(sources)
     return infront_of_array
 
@@ -86,15 +86,20 @@ def mellen_pachter_raquet_2003(mic_array, di):
     z = np.sum(S**2, 1) - di**2
     z *= 0.5
     # eqn. 17 - without the weighting matrix R
-    inv_StS = np.linalg.inv(np.dot(S.T, S))
-    inv_StS_St = np.dot(inv_StS, S.T)
-    a = np.dot(inv_StS_St, z)
-    # eqn. 18
-    b = np.dot(inv_StS_St, di)
-    # eqn. 22
-    Rs_12 = solve_eqn_22(a, b)
-    # substitute Rs into eqn. 19
-    xs = choose_correct_mpr_solutions(mic_array, Rs_12, (a, b), di)
+    try:
+        inv_StS = np.linalg.inv(np.dot(S.T, S))
+        inv_StS_St = np.dot(inv_StS, S.T)
+
+        a = np.dot(inv_StS_St, z)
+        # eqn. 18
+        b = np.dot(inv_StS_St, di)
+        # eqn. 22
+        Rs_12 = solve_eqn_22(a, b)
+        # substitute Rs into eqn. 19
+        xs = choose_correct_mpr_solutions(mic_array, Rs_12, (a, b), di)
+    except Exception as e:
+        print(f"ERROR in MPR: {e}")
+        return np.array([])
     return xs
 
 

@@ -5,7 +5,7 @@ import threading
 import logging
 
 logger = logging.getLogger("PLAYER")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 class PlayTone:
@@ -14,6 +14,7 @@ class PlayTone:
         self.state = state
         self.channels = [0]
         self.blocksize = 4096
+        self.chunk_time = np.around(self.blocksize * 1000 / self.cfg.fs, 2)
         self.PCM = alsa.PCM(
             type=alsa.PCM_PLAYBACK,
             mode=alsa.PCM_NORMAL,
@@ -26,7 +27,10 @@ class PlayTone:
 
     def play(self, duration=5, frequency=30000, rate=1):
         """Play a tone of given frequency and duration."""
-        samples = int((self.cfg.fs * duration / 1000) / self.blocksize) * self.blocksize
+        samples = (
+            int(np.ceil((self.cfg.fs * duration / 1000) / self.blocksize))
+            * self.blocksize
+        )
         # tone = self.make_tone(frequency, samples)
         tone = self.make_sweep(frequency, 2000, samples)
         logger.info(self.PCM.info())
@@ -83,29 +87,33 @@ class PlayTone:
                 return
 
             while not self.state.stop_event.isSet():
-                logger.info(f"BEEP interval: {interval}")
+                logger.info(
+                    f"BEEP interval: {interval}, num_chunks: {num_chunks}, duration: {np.around(num_chunks*self.chunk_time, 2)}ms"
+                )
                 # time.sleep(1)
                 for ch in self.channels:
                     logger.debug(f"play ch {ch} .. interval {interval}")
-                    for chunk in range(num_chunks):
-
-                        block = tone[
-                            chunk * self.blocksize : (chunk + 1) * self.blocksize
-                        ]
-
-                        if len(block) != self.blocksize:
-                            continue  # safety guard
-
-                        frame = np.zeros(self.blocksize * 10, dtype=np.int32)
-
-                        frame[ch::10] = block
-
-                        self.PCM.write(frame.tobytes())
-                        logger.debug(
-                            f"write on ch {ch} chunk {chunk} .. time {time.monotonic()} frame: {frame[100:106]}"
-                        )
+                    self.output(tone, ch, num_chunks, 1)
                     print("sleeping interval")
                     time.sleep(interval)
 
         except Exception as e:
             logger.error("beep thread crashed:", repr(e))
+
+    def output(self, tone, ch, num_chunks, amp):
+
+        for chunk in range(num_chunks):
+
+            block = tone[chunk * self.blocksize : (chunk + 1) * self.blocksize]
+
+            if len(block) != self.blocksize:
+                continue  # safety guard
+
+            frame = np.zeros(self.blocksize * 10, dtype=np.int32)
+
+            frame[ch::10] = block * amp
+
+            self.PCM.write(frame.tobytes())
+            logger.debug(
+                f"write on ch {ch} chunk {chunk} .. time {time.monotonic()} frame: {frame[100:106]}"
+            )
