@@ -38,6 +38,7 @@ from rt_bat_tracker.utils.session_class import Session
 import rt_bat_tracker.audio.audio_input as audio_input
 import rt_bat_tracker.tracking.beta_processing as processing
 import rt_bat_tracker.GUI.gui_update as gui
+import rt_bat_tracker.utils.measure as measure
 from rt_bat_tracker.utils.dataClass import SharedState
 from rt_bat_tracker.utils.json_formatter import JsonFormatter
 
@@ -150,9 +151,14 @@ def main():
     # QApplication deve essere creata nel main thread.
     # gui_update.run() blocca qui finché la finestra non viene chiusa,
     # dopodiché setta stop_event tramite app.aboutToQuit.
-    logger.info("loading gui... ")
-    state.gui_t_start = time.time()
-    gui.run(state, cfg, session)
+    if not args.measure:
+        logger.info("loading gui... ")
+        state.gui_t_start = time.time()
+        gui.run(state, cfg, session)
+    else:
+        logger.info("starting measurement")
+        measure.run(state, cfg, session)
+
     # app.exec()
     # Su RPi4: se usi eglfs forza il platform plugin corretto
     # export QT_QPA_PLATFORM=eglfs   (oppure xcb se hai X11)

@@ -32,12 +32,6 @@ def parse_args(
     )
 
     parser.add_argument(
-        "--loopback",
-        action="store_true",
-        help="Enable WASAPI loopback capture on Windows",
-    )
-
-    parser.add_argument(
         "--mode",
         default=default_mode,
         choices=["realtime", "audiofile"],
@@ -58,6 +52,8 @@ def parse_args(
         help="Play a beep sound to test the audio output: "
         "[duration in ms, frequency in Hertz, rate in beeps per second], default [5, 30000, 1]",
     )
+
+    parser.add_argument("--measure", action="store_true")
 
     args = parser.parse_args(argv)
 
