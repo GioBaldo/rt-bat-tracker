@@ -31,7 +31,7 @@ def tristar_mellen_pachter(*args):
     which only outputs positive y axis sources.
     """
     sources = mellen_pachter_raquet_2003(*args)
-    print("sources:", sources)
+
     infront_of_array = []
     if sources.size > 3:
         for each in sources:

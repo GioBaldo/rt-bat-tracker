@@ -1,6 +1,6 @@
-# %% imports
-# %matplotlib qt #solo se giro in locale
-# %%
+# %% backend
+%matplotlib qt
+# %% IMPORTS
 import sim_localisation_mpr2003 as mpr
 import pandas as pd
 import numpy as np
@@ -11,15 +11,7 @@ import matplotlib.pyplot as plt
 
     Reference coordinate system is (0, 0, 0) at the center of the array, with the z-axis pointing outwards. The array is assumed to be in the xy-plane at z=0.
 """
-# %% defaults
-MIC_SEPARATION = [0.5, 1.0]  # in meters
-MIC_DEPTH = [1.0]  # in meters
-N_MIC = [6, 7]
-ARRAY_SHAPE = ["star"]  # , "prism", "paraboloid", "random"]
-
-
-arrays = []
-results = []
+# %% FUNCTIONS
 
 
 def StarArray(n_mic, sep, depth):
@@ -37,8 +29,17 @@ def PrismArray(n_mic, sep, depth):
     """
     Create a prism-shaped array of microphones.
     """
-
-    pass
+    root = [
+        (0, 0, 0),
+        (0, sep, 0),
+        (sep, 0, 0),
+        (sep / 2, sep / 2, depth),
+        (sep, sep, 0),
+        (-sep, 0, 0),
+        (-sep / 2, sep / 2, depth),
+        (-sep, sep, 0),
+    ]
+    return np.array(root[:n_mic])
 
 
 def ParaboloidArray(n_mic, sep, depth):
@@ -105,20 +106,35 @@ def plot_arrays(sel):
     plt.show()
 
 
-def plot_sources(sources_df, type="src"):
+def plot_sources(sources_df, type="src", array_df=None, id=1):
+    """
+    Plot sources accordingly to the type specified [default:src]
+
+    type:
+    - src: plot the sources as they are
+    - pure: plot the sources localized with pure delays
+    - noisy: plot the sources localized with noisy delays
+    - pure_c: plot the sources as they are, color-coded by pure localization error
+    - noisy_c: plot the sources as they are, color-coded by noisy localization error
+    - s+p: plot the sources as they are, and the sources localized with pure delays
+    - s+n: plot the sources as they are, and the sources localized with noisy delays
+    """
     sources_fig = plt.figure()
     sources_ax = sources_fig.add_subplot(111, projection="3d")
     sources_ax.scatter(0, 0, 0, color="red", s=20)
     src_radius = sources_df["r"].unique()
+    pSIZE = 10
+    pALPHA = 0.5
     match type:
         case "src":
             for r in src_radius:
                 eq_r_df = sources_df[sources_df["r"] == r]
                 sources_ax.scatter(
-                    eq_r_df["pl_x"],
-                    eq_r_df["pl_y"],
-                    eq_r_df["pl_z"],
-                    s=5,
+                    eq_r_df["x"],
+                    eq_r_df["y"],
+                    eq_r_df["z"],
+                    s=pSIZE,
+                    alpha=pALPHA,
                     label=f"r={r:.2f} m",
                 )
         case "pure":
@@ -128,7 +144,8 @@ def plot_sources(sources_df, type="src"):
                     eq_r_df["pl_x"],
                     eq_r_df["pl_y"],
                     eq_r_df["pl_z"],
-                    s=5,
+                    s=pSIZE,
+                    alpha=pALPHA,
                     label=f"r={r:.2f} m",
                 )
         case "noisy":
@@ -138,7 +155,8 @@ def plot_sources(sources_df, type="src"):
                     eq_r_df["nl_x"],
                     eq_r_df["nl_y"],
                     eq_r_df["nl_z"],
-                    s=5,
+                    s=pSIZE,
+                    alpha=pALPHA,
                     label=f"r={r:.2f} m",
                 )
         case "pure_c":
@@ -146,8 +164,9 @@ def plot_sources(sources_df, type="src"):
                 sources_df["x"],
                 sources_df["y"],
                 sources_df["z"],
-                s=5,
-                color=sources_df["pure_error"],
+                s=pSIZE,
+                alpha=pALPHA,
+                c=sources_df["pure_error"],
                 cmap="viridis",
             )
         case "noisy_c":
@@ -155,11 +174,90 @@ def plot_sources(sources_df, type="src"):
                 sources_df["x"],
                 sources_df["y"],
                 sources_df["z"],
-                s=5,
-                color=sources_df["noisy_error"],
+                s=pSIZE,
+                alpha=pALPHA,
+                c=sources_df["noisy_error"],
                 cmap="viridis",
             )
+        case "s+p":
+            sources_ax.scatter(
+                sources_df["x"],
+                sources_df["y"],
+                sources_df["z"],
+                s=pSIZE,
+                alpha=pALPHA,
+                label="sources",
+            )
+            sources_ax.scatter(
+                sources_df["pl_x"],
+                sources_df["pl_y"],
+                sources_df["pl_z"],
+                s=pSIZE,
+                alpha=pALPHA,
+                label="pure localized",
+            )
+            for src in sources_df.itertuples():
+                sources_ax.plot(
+                    [src.x, src.pl_x],
+                    [src.y, src.pl_y],
+                    [src.z, src.pl_z],
+                    color="gray",
+                    alpha=0.3,
+                )
+        case "s+n":
+            sources_ax.scatter(
+                sources_df["x"],
+                sources_df["y"],
+                sources_df["z"],
+                s=pSIZE,
+                alpha=pALPHA,
+                label="sources",
+            )
+            sources_ax.scatter(
+                sources_df["nl_x"],
+                sources_df["nl_y"],
+                sources_df["nl_z"],
+                s=pSIZE,
+                alpha=pALPHA,
+                label="noisy localized",
+            )
+            for src in sources_df.itertuples():
+                sources_ax.plot(
+                    [src.x, src.nl_x],
+                    [src.y, src.nl_y],
+                    [src.z, src.nl_z],
+                    color="gray",
+                    alpha=0.3,
+                )
+    if array_df is not None:
+        sel = array_df[array_df["arr_id"] == id]  # select here arrays to be evaluated
+        selected_arrays = sel["arr_id"].unique()
+
+        for id in selected_arrays:
+            arr_sel = sel[sel["arr_id"] == id]
+            color = np.random.rand(3)
+            sources_ax.scatter(
+                arr_sel["x"],
+                arr_sel["y"],
+                arr_sel["z"],
+                c=color,
+                alpha=0.8,
+                s=50,
+                label=f"array {id} - {arr_sel['shape'].iloc[0]} [{arr_sel['n_mic'].iloc[0]} mic / {arr_sel['sep'].iloc[0]} sep / {arr_sel['depth'].iloc[0]} depth]",
+            )
+            for _, row in arr_sel.iterrows():
+                sources_ax.text(
+                    row["x"], row["y"], row["z"], (str(id) + "." + str(row["mic_id"]))
+                )
+                sources_ax.plot(
+                    [0, row["x"]],
+                    [0, row["y"]],
+                    [0, row["z"]],
+                    c=color,
+                    alpha=0.5,
+                )
     sources_ax.set_title(f"{type} localized sources")
+    sources_ax.legend()
     sources_ax.set_xlabel("x")
     sources_ax.set_ylabel("y")
     sources_ax.set_zlabel("z")
@@ -169,6 +267,13 @@ def plot_sources(sources_df, type="src"):
 
 
 # %% generate arrays
+MIC_SEPARATION = [0.5]  # in meters
+MIC_DEPTH = [1.0]  # in meters
+N_MIC = [5, 8]
+ARRAY_SHAPE = ["prism"]  # , "prism", "paraboloid", "random"]
+
+arrays = []
+
 arr_id = 0
 
 for shape in ARRAY_SHAPE:
@@ -187,9 +292,10 @@ array_df = pd.DataFrame(
 )
 
 # %% create sources volume
-SOURCES_DENSITY = 1  # distances on surface and radius
-MAX_DISTANCE = 10.0  # in meters
-MIN_DISTANCE = 1.0  # in meters
+
+SOURCES_DENSITY = 2  # distances on surface and radius
+MAX_DISTANCE = 4.5  # in meters
+MIN_DISTANCE = 2.0  # in meters
 sources = []
 
 r_values = np.linspace(
@@ -286,26 +392,34 @@ for id in selected_arrays:
     mic_array = arr_sel[["x", "y", "z"]].to_numpy(dtype=float)
     for s_idx, src in sources_df.iterrows():
         source_pos = src[["x", "y", "z"]].to_numpy(dtype=float)
+        TOAs = []
+        noisy_TOAs = []
         delays = []
         noisy_delays = []
         for mic in mic_array:
             distance = np.linalg.norm(source_pos - mic)
-            delay = distance / 343.0
-            delays.append(delay)
-            noisy_delays.append(
-                delay + np.random.normal(0, NOISE_AMOUNT)
+            toa = distance  # / 343.0
+            TOAs.append(toa)
+            noisy_TOAs.append(
+                toa + np.random.normal(0, NOISE_AMOUNT)
             )  # add noise to the delay
-        delays = np.array(delays[1:] - delays[0])  # relative to mic 0
-        noisy_delays = np.array(noisy_delays[1:] - noisy_delays[0])  # relative to mic 0
-        pure_localization = mpr.mellen_pachter_raquet_2003(mic_array, delays)
-        noisy_localization = mpr.mellen_pachter_raquet_2003(mic_array, noisy_delays)
+        delays = np.array(TOAs[1:] - TOAs[0])  # relative to mic 0
+        noisy_delays = np.array(noisy_TOAs[1:] - noisy_TOAs[0])  # relative to mic 0
+        pure_localization = np.array(
+            mpr.tristar_mellen_pachter(mic_array, delays), dtype=float
+        ).reshape(-1)
+        noisy_localization = np.array(
+            mpr.tristar_mellen_pachter(mic_array, noisy_delays), dtype=float
+        ).reshape(-1)
+
+        # add results to sources DF
         pure_error = (
-            np.linalg.norm(pure_localization - source_pos)
+            np.linalg.norm(pure_localization[:3] - source_pos)
             if pure_localization.size > 0
             else np.nan
         )
         noisy_error = (
-            np.linalg.norm(noisy_localization - source_pos)
+            np.linalg.norm(noisy_localization[:3] - source_pos)
             if noisy_localization.size > 0
             else np.nan
         )
