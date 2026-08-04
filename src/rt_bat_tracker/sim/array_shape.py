@@ -267,10 +267,10 @@ def plot_sources(sources_df, type="src", array_df=None, id=1):
 
 
 # %% generate arrays
-MIC_SEPARATION = [0.5]  # in meters
-MIC_DEPTH = [0.5]  # in meters
-N_MIC = [5, 8]
-ARRAY_SHAPE = ["star", "prism"]  # , "prism", "paraboloid", "random"]
+MIC_SEPARATION = [0.2, 1.5]  # in meters
+MIC_DEPTH = [0.5, 1]  # in meters
+N_MIC = [4]
+ARRAY_SHAPE = ["star"]  # "star", "prism", "paraboloid", "random"]
 
 arrays = []
 
@@ -293,8 +293,8 @@ array_df = pd.DataFrame(
 
 # %% create sources volume
 
-SOURCES_DENSITY = 2  # distances on surface and radius
-MAX_DISTANCE = 4.5  # in meters
+SOURCES_DENSITY = 1  # distances on surface and radius
+MAX_DISTANCE = 10.0  # in meters
 MIN_DISTANCE = 2.0  # in meters
 sources = []
 
@@ -387,7 +387,8 @@ sel = array_df[array_df["arr_id"] < 20]  # select here arrays to be evaluated
 selected_arrays = sel["arr_id"].unique()
 results_list = []
 
-NOISE_AMOUNT = 0.0001  # in seconds
+NOISE_AMOUNT = 0.001  # in meters
+N_ITERATIONS = 10  # number of iterations for each source
 
 for id in selected_arrays:
     c_sources_df = sources_df.copy()
@@ -395,36 +396,41 @@ for id in selected_arrays:
     mic_array = arr_sel[["x", "y", "z"]].to_numpy(dtype=float)
     for s_idx, src in c_sources_df.iterrows():
         source_pos = src[["x", "y", "z"]].to_numpy(dtype=float)
-        TOAs = []
-        noisy_TOAs = []
-        delays = []
-        noisy_delays = []
-        for mic in mic_array:
-            distance = np.linalg.norm(source_pos - mic)
-            toa = distance  # / 343.0
-            TOAs.append(toa)
-            noisy_TOAs.append(
-                toa + np.random.normal(0, NOISE_AMOUNT)
-            )  # add noise to the delay
-        delays = np.array(TOAs[1:] - TOAs[0])  # relative to mic 0
-        noisy_delays = np.array(noisy_TOAs[1:] - noisy_TOAs[0])  # relative to mic 0
-        pure_localization = np.array(
-            mpr.tristar_mellen_pachter(mic_array, delays), dtype=float
-        ).reshape(-1)
-        noisy_localization = np.array(
-            mpr.tristar_mellen_pachter(mic_array, noisy_delays), dtype=float
-        ).reshape(-1)
+        computer_pure_errors = []
+        computer_noisy_errors = []
+        for _ in range(N_ITERATIONS):
+            TOAs = []
+            noisy_TOAs = []
+            delays = []
+            noisy_delays = []
+            for mic in mic_array:
+                distance = np.linalg.norm(source_pos - mic)
+                toa = distance  # / 343.0
+                TOAs.append(toa)
+                noisy_TOAs.append(
+                    toa + np.random.normal(0, NOISE_AMOUNT)
+                )  # add noise to the delay
+            delays = np.array(TOAs[1:] - TOAs[0])  # relative to mic 0
+            noisy_delays = np.array(noisy_TOAs[1:] - noisy_TOAs[0])  # relative to mic 0
+            pure_localization = np.array(
+                mpr.tristar_mellen_pachter(mic_array, delays), dtype=float
+            ).reshape(-1)
+            noisy_localization = np.array(
+                mpr.tristar_mellen_pachter(mic_array, noisy_delays), dtype=float
+            ).reshape(-1)
 
-        pure_error = (
-            np.linalg.norm(pure_localization[:3] - source_pos)
-            if pure_localization.size > 0
-            else np.nan
-        )
-        noisy_error = (
-            np.linalg.norm(noisy_localization[:3] - source_pos)
-            if noisy_localization.size > 0
-            else np.nan
-        )
+            pure_error = (
+                np.linalg.norm(pure_localization[:3] - source_pos)
+                if pure_localization.size > 0
+                else np.nan
+            )
+            noisy_error = (
+                np.linalg.norm(noisy_localization[:3] - source_pos)
+                if noisy_localization.size > 0
+                else np.nan
+            )
+            computer_pure_errors.append(pure_error)
+            computer_noisy_errors.append(noisy_error)
         # add results to sources DF
         c_sources_df.loc[s_idx, "arr_id"] = int(id)
 
@@ -446,8 +452,8 @@ for id in selected_arrays:
         c_sources_df.loc[s_idx, "nl_z"] = (
             noisy_localization[2] if noisy_localization.size > 2 else np.nan
         )
-        c_sources_df.loc[s_idx, "pure_error"] = pure_error
-        c_sources_df.loc[s_idx, "noisy_error"] = noisy_error
+        c_sources_df.loc[s_idx, "pure_error"] = np.mean(computer_pure_errors)
+        c_sources_df.loc[s_idx, "noisy_error"] = np.mean(computer_noisy_errors)
 
     results_list.append(c_sources_df)
 
@@ -455,8 +461,19 @@ sources_df = pd.concat(results_list, ignore_index=True)
 
 # %% compute statistics
 from scipy.interpolate import make_interp_spline
+from pathlib import Path
 
-FALSE_LOC_TOLERANCE = 0.2  # percent of distance, discard localization errors above this threshold as false localizations
+SCRIPT_DIR = Path(__file__).parent
+RESULTS_DIR = SCRIPT_DIR / "results"
+RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+sim_id = 1
+while (RESULTS_DIR / f"SIM_{sim_id}").exists():
+    sim_id += 1
+SIM_DIR = RESULTS_DIR / f"SIM_{sim_id}"
+SIM_DIR.mkdir(parents=True, exist_ok=True)
+
+
+FALSE_LOC_TOLERANCE = 0.8  # percent of distance, discard localization errors above this threshold as false localizations
 theta_intervals = np.linspace(0, np.pi / 2, 5)
 r_labels = [f"_r_{r:.2f}" for r in r_values]
 theta_labels = [
@@ -523,6 +540,7 @@ for array_id in sources_df["arr_id"].unique():
         results.loc[row_index, f"noisy{theta_labels[i]}"] = noisy_error_mean_t
 
     ####PLOT RESULTS###########
+
     img = plt.figure(figsize=(15, 16))
     gs = img.add_gridspec(
         3, 4, width_ratios=[1, 0.1, 1, 0.1], height_ratios=[1, 0.1, 1]
@@ -608,15 +626,16 @@ for array_id in sources_df["arr_id"].unique():
             error.append(non_false_n_r_t["noisy_error"].mean())
         theta = np.array(theta)
         error = np.array(error)
-        theta_smooth = np.linspace(theta.min(), theta.max(), 200)
-        spl = make_interp_spline(theta, error, k=2)
-        error_smooth = spl(theta_smooth)
-        polar_ax.plot(
-            theta_smooth,
-            error_smooth,
-            label=f"r={r:.2f} m",
-            alpha=0.5,
-        )
+        if len(theta) > 2:
+            theta_smooth = np.linspace(theta.min(), theta.max(), 200)
+            spl = make_interp_spline(theta, error, k=2)
+            error_smooth = spl(theta_smooth)
+            polar_ax.plot(
+                theta_smooth,
+                error_smooth,
+                label=f"r={r:.2f} m",
+                alpha=0.5,
+            )
     polar_ax.set_thetalim(0, np.pi / 2)
     polar_ax.set_rscale("log")
     polar_ax.set_theta_zero_location("N")
@@ -626,7 +645,7 @@ for array_id in sources_df["arr_id"].unique():
     polar_ax.legend()
 
     img.suptitle(
-        f"Array {int(array_id)} - shape: {this_array['shape'].iloc[0]} [{this_array['n_mic'].iloc[0]} mic / {this_array['sep'].iloc[0]} sep / {this_array['depth'].iloc[0]} depth], Mean error: {noisy_error_mean:.3f} m",
+        f"Array {int(array_id)} - shape: {this_array['shape'].iloc[0]} [{this_array['n_mic'].iloc[0]} mic / {this_array['sep'].iloc[0]} sep / {this_array['depth'].iloc[0]} depth], Mean error: {noisy_error_mean:.3f} m, Dropped: {noisy_false_loc_count}",
         fontsize=18,
         fontweight="bold",
     )
@@ -636,9 +655,13 @@ for array_id in sources_df["arr_id"].unique():
     #     ha="center",
     #     fontsize=16,
     # )
-
-img.tight_layout()
-plt.show()
+    img.savefig(
+        SIM_DIR
+        / f"array_{int(array_id)}_{this_array['shape'].iloc[0]}_{this_array['n_mic'].iloc[0]}mic_{this_array['sep'].iloc[0]}sep_{this_array['depth'].iloc[0]}dep.png",
+        dpi=300,
+    )
+    img.tight_layout()
+    plt.show()
 
 compare = plt.figure(figsize=(10, 5))
 compare.suptitle("Comparison of evaluated arrays", fontsize=18, fontweight="bold")
@@ -649,8 +672,16 @@ me.bar(results["arr_id"], results["noisy_error_mean"], alpha=0.5)
 me.xaxis.set_ticks(results["arr_id"].unique())
 
 fl = compare.add_subplot(gg[0, 1])
-fl.set_title("False Localization Count across Arrays")
+fl.set_title(
+    f"False Localization Count across Arrays (out of {c_sources_df.shape[0]} sources)"
+)
 fl.bar(results["arr_id"], results["noisy_false_loc_count"], alpha=0.5)
 fl.xaxis.set_ticks(results["arr_id"].unique())
 
+compare.savefig(SIM_DIR / f"comparison_arrays.png", dpi=300)
+compare.tight_layout()
+plt.show()
+
+results.to_csv(SIM_DIR / f"results.csv", index=False)
+array_df.to_csv(SIM_DIR / f"array_shapes.csv", index=False)
 # %%
