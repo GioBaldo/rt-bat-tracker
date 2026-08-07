@@ -460,8 +460,9 @@ for id in selected_arrays:
 sources_df = pd.concat(results_list, ignore_index=True)
 
 # %% compute statistics
-from scipy.interpolate import make_interp_spline
+from scipy.interpolate import make_interp_spline, PchipInterpolator
 from pathlib import Path
+import matplotlib.colors as mcolors
 
 SCRIPT_DIR = Path(__file__).parent
 RESULTS_DIR = SCRIPT_DIR / "results"
@@ -484,7 +485,9 @@ results = pd.DataFrame(
     columns=[
         "arr_id",
         "pure_error_mean",
+        "pure_error_median",
         "noisy_error_mean",
+        "noisy_error_median",
         "pure_false_loc_count",
         "noisy_false_loc_count",
     ]
@@ -497,14 +500,18 @@ for lab in r_labels:
 for lab in theta_labels:
     results[f"pure{lab}"] = np.nan
     results[f"noisy{lab}"] = np.nan
-
+colmap = mcolors.LinearSegmentedColormap.from_list("green_red", ["green", "red"])
+# colmap= plt.cm.PiYG
+col_norm = mcolors.Normalize(vmin=0, vmax=100)
 
 for array_id in sources_df["arr_id"].unique():
     arr_sel = sources_df[sources_df["arr_id"] == array_id]
     non_false_p = arr_sel[arr_sel["pure_error"] < FALSE_LOC_TOLERANCE * arr_sel["r"]]
     non_false_n = arr_sel[arr_sel["noisy_error"] < FALSE_LOC_TOLERANCE * arr_sel["r"]]
     pure_error_mean = non_false_p["pure_error"].mean()
+    pure_error_median = arr_sel["pure_error"].median()
     noisy_error_mean = non_false_n["noisy_error"].mean()
+    noisy_error_median = arr_sel["noisy_error"].median()
     pure_false_loc_count = arr_sel.shape[0] - non_false_p.shape[0]
     noisy_false_loc_count = arr_sel.shape[0] - non_false_n.shape[0]
     row_index = len(results)
@@ -512,7 +519,9 @@ for array_id in sources_df["arr_id"].unique():
     results.loc[row_index] = {
         "arr_id": array_id,
         "pure_error_mean": pure_error_mean,
+        "pure_error_median": pure_error_median,
         "noisy_error_mean": noisy_error_mean,
+        "noisy_error_median": noisy_error_median,
         "pure_false_loc_count": pure_false_loc_count,
         "noisy_false_loc_count": noisy_false_loc_count,
     }
@@ -541,9 +550,9 @@ for array_id in sources_df["arr_id"].unique():
 
     ####PLOT RESULTS###########
 
-    img = plt.figure(figsize=(15, 16))
+    img = plt.figure(figsize=(22, 16))
     gs = img.add_gridspec(
-        3, 4, width_ratios=[1, 0.1, 1, 0.1], height_ratios=[1, 0.1, 1]
+        3, 5, width_ratios=[1, 0.1, 1, 0.1, 1], height_ratios=[1, 0.1, 1]
     )
 
     ## plot array
@@ -606,15 +615,26 @@ for array_id in sources_df["arr_id"].unique():
     noisy_ax.set_box_aspect((2, 2, 1))
 
     # plot error to distance
-    error_ax = img.add_subplot(gs[2, 0])
+    PLOT_Y_LIMIT = 3
+    error_ax = img.add_subplot(gs[2, 2])
     error_ax.set_title("Noisy Localization Error vs Distance")
-    error_ax.plot(non_false_n["r"], non_false_n["noisy_error"], "o", alpha=0.5)
+    min_4 = arr_sel[arr_sel["noisy_error"] < PLOT_Y_LIMIT]
+    error_ax.plot(min_4["r"], min_4["noisy_error"], "o", alpha=0.5)
+    for r in r_values:
+        more_4 = (
+            1 - min_4[min_4["r"] == r].shape[0] / arr_sel[arr_sel["r"] == r].shape[0]
+        ) * 100
+        color = colmap(col_norm(more_4))
+        error_ax.text(
+            r - 0.1, PLOT_Y_LIMIT - 0.1, f"{more_4:.0f}%", fontsize=10, color=color
+        )
+    error_ax.set_ylim(0, PLOT_Y_LIMIT)
     error_ax.set_xlabel("Distance (m)")
     error_ax.set_ylabel("Noisy Localization Error (m)")
 
     # polar plot of error vs angle
-    polar_ax = img.add_subplot(gs[2, 2], projection="polar")
-    polar_ax.set_title("Noisy Localization Error vs Angle")
+    polar_ax = img.add_subplot(gs[0, 4], projection="polar")
+    polar_ax.set_title("Noisy Localization Error vs Theta")
     for r in r_values:
         non_false_n_r = non_false_n[non_false_n["r"] == r]
         non_false_n_r = non_false_n_r.sort_values(by="theta")
@@ -625,10 +645,11 @@ for array_id in sources_df["arr_id"].unique():
             theta.append(t)
             error.append(non_false_n_r_t["noisy_error"].mean())
         theta = np.array(theta)
-        error = np.array(error)
+        error = np.maximum(np.array(error), 0.001)
         if len(theta) > 2:
             theta_smooth = np.linspace(theta.min(), theta.max(), 200)
-            spl = make_interp_spline(theta, error, k=2)
+            # spl = make_interp_spline(theta, error, k=2)
+            spl = PchipInterpolator(theta, error)
             error_smooth = spl(theta_smooth)
             polar_ax.plot(
                 theta_smooth,
@@ -638,23 +659,89 @@ for array_id in sources_df["arr_id"].unique():
             )
     polar_ax.set_thetalim(0, np.pi / 2)
     polar_ax.set_rscale("log")
+    polar_ax.set_rmin(0.001)
+    polar_ax.set_rmax(10)
     polar_ax.set_theta_zero_location("N")
     polar_ax.set_theta_direction(-1)
     polar_ax.set_xlabel("Theta (rad)")
     polar_ax.set_ylabel("Noisy Localization Error (m)")
     polar_ax.legend()
 
+    # polar plot along phi and distance
+    phi_ax = img.add_subplot(gs[2, 4], projection="polar")
+    phi_ax.set_title("Noisy Localization Error vs Phi [log scale]")
+    sorted_z = arr_sel.sort_values(by="z")
+    z_span = len(sorted_z) // 3
+    for i in range(3):
+        z_sel = sorted_z.iloc[i * z_span : (i + 1) * z_span]
+        z_min = z_sel["z"].min()
+        z_max = z_sel["z"].max()
+        phi_intervals = np.linspace(0, 2 * np.pi, 41)
+        phi_delta = phi_intervals[1] - phi_intervals[0]
+        error_phi = []
+        phi_centers = []
+        for j in range(len(phi_intervals) - 1):
+            phi_min = phi_intervals[j]
+            phi_max = phi_intervals[j + 1]
+
+            subset = z_sel[
+                (z_sel["phi"] >= phi_min)
+                & (z_sel["phi"] < phi_max)
+                & (z_sel["noisy_error"] != np.nan)
+            ]
+            if not subset.empty:
+                phi_err_value = abs(subset["noisy_error"]).median()
+                error_phi.append(phi_err_value)
+                phi_centers.append((phi_min + phi_max) / 2)
+        # pop NaN values from error_phi and phi_centers, spline will smooth out the missimg values
+        for i in range(len(error_phi)):
+            if np.isnan(error_phi[i]):
+                error_phi.pop(i)
+                phi_centers.pop(i)
+
+        if len(phi_centers) > 2:
+            phi_centers = np.array(phi_centers)
+            error_phi = np.array(error_phi)
+            phi_smooth = np.linspace(phi_centers.min(), phi_centers.max(), 200)
+            # spl = make_interp_spline(phi_centers, np.log10(error_phi), k=2)
+            spl = PchipInterpolator(phi_centers, error_phi)
+            error_smooth = spl(phi_smooth)
+            phi_ax.plot(
+                phi_smooth,
+                error_smooth,
+                label=f"z={z_min:.2f}-{z_max:.2f} m",
+                alpha=0.5,
+            )
+
+    for _, row in this_array.iterrows():
+        line_angle = np.arctan2(row["y"], row["x"])
+        if line_angle < 0:
+            line_angle += 2 * np.pi
+        phi_ax.axvline(
+            line_angle,
+            # np.sqrt(row["x"] ** 2 + row["y"] ** 2) * np.cos(row["z"]),
+            linestyle="--",
+            linewidth=1,
+            color="red",
+        )
+    phi_ax.set_thetalim(0, 2 * np.pi)
+
+    phi_ax.set_rscale("log")
+    phi_ax.set_rmin(0.001)
+    phi_ax.set_rmax(10)
+    phi_ax.set_theta_zero_location("N")
+    phi_ax.set_theta_direction(-1)
+    phi_ax.set_xlabel("Phi (rad)")
+    phi_ax.legend()
+
+    # image settings
+
     img.suptitle(
         f"Array {int(array_id)} - shape: {this_array['shape'].iloc[0]} [{this_array['n_mic'].iloc[0]} mic / {this_array['sep'].iloc[0]} sep / {this_array['depth'].iloc[0]} depth], Mean error: {noisy_error_mean:.3f} m, Dropped: {noisy_false_loc_count}",
         fontsize=18,
         fontweight="bold",
     )
-    # img.text(
-    #     0.5, 0.95,
-    #     f"Mean error: {noisy_error_mean:.3f} m evaluated noise magnitude of {NOISE_AMOUNT*1000:.2f} ms ",
-    #     ha="center",
-    #     fontsize=16,
-    # )
+
     img.savefig(
         SIM_DIR
         / f"array_{int(array_id)}_{this_array['shape'].iloc[0]}_{this_array['n_mic'].iloc[0]}mic_{this_array['sep'].iloc[0]}sep_{this_array['depth'].iloc[0]}dep.png",
@@ -667,8 +754,8 @@ compare = plt.figure(figsize=(10, 5))
 compare.suptitle("Comparison of evaluated arrays", fontsize=18, fontweight="bold")
 gg = compare.add_gridspec(1, 2, width_ratios=[1, 1])
 me = compare.add_subplot(gg[0, 0])
-me.set_title("Mean Localization Error across Arrays")
-me.bar(results["arr_id"], results["noisy_error_mean"], alpha=0.5)
+me.set_title("Median Localization Error across Arrays")
+me.bar(results["arr_id"], results["noisy_error_median"], alpha=0.5)
 me.xaxis.set_ticks(results["arr_id"].unique())
 
 fl = compare.add_subplot(gg[0, 1])
