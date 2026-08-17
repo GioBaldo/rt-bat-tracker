@@ -234,18 +234,18 @@ def plot_sources(sources_df, type="src", array_df=None, id=1):
         selected_arrays = sel["arr_id"].unique()
 
         for id in selected_arrays:
-            arr_sel = sel[sel["arr_id"] == id]
+            this_array = sel[sel["arr_id"] == id]
             color = np.random.rand(3)
             sources_ax.scatter(
-                arr_sel["x"],
-                arr_sel["y"],
-                arr_sel["z"],
+                this_array["x"],
+                this_array["y"],
+                this_array["z"],
                 c=color,
                 alpha=0.8,
                 s=50,
-                label=f"array {id} - {arr_sel['shape'].iloc[0]} [{arr_sel['n_mic'].iloc[0]} mic / {arr_sel['sep'].iloc[0]} sep / {arr_sel['depth'].iloc[0]} depth]",
+                label=f"array {id} - {this_array['shape'].iloc[0]} [{this_array['n_mic'].iloc[0]} mic / {this_array['sep'].iloc[0]} sep / {this_array['depth'].iloc[0]} depth]",
             )
-            for _, row in arr_sel.iterrows():
+            for _, row in this_array.iterrows():
                 sources_ax.text(
                     row["x"], row["y"], row["z"], (str(id) + "." + str(row["mic_id"]))
                 )
@@ -267,10 +267,10 @@ def plot_sources(sources_df, type="src", array_df=None, id=1):
 
 
 # %% generate arrays
-MIC_SEPARATION = [0.2, 1.5]  # in meters
-MIC_DEPTH = [0.5, 1]  # in meters
+MIC_SEPARATION = [1]  # in meters
+MIC_DEPTH = [0.2]  # in meters
 N_MIC = [4]
-ARRAY_SHAPE = ["star"]  # "star", "prism", "paraboloid", "random"]
+ARRAY_SHAPE = ["prism"]  # "star", "prism", "paraboloid", "random"]
 
 arrays = []
 
@@ -294,7 +294,7 @@ array_df = pd.DataFrame(
 # %% create sources volume
 
 SOURCES_DENSITY = 1  # distances on surface and radius
-MAX_DISTANCE = 10.0  # in meters
+MAX_DISTANCE = 3.0  # in meters
 MIN_DISTANCE = 2.0  # in meters
 sources = []
 
@@ -343,18 +343,18 @@ ax = fig.add_subplot(111, projection="3d")
 selected_arrays = sel["arr_id"].unique()
 
 for id in selected_arrays:
-    arr_sel = sel[sel["arr_id"] == id]
+    this_array = sel[sel["arr_id"] == id]
     color = np.random.rand(3)
     ax.scatter(
-        arr_sel["x"],
-        arr_sel["y"],
-        arr_sel["z"],
+        this_array["x"],
+        this_array["y"],
+        this_array["z"],
         c=color,
         alpha=0.8,
         s=50,
-        label=f"array {id} - {arr_sel['shape'].iloc[0]} [{arr_sel['n_mic'].iloc[0]} mic / {arr_sel['sep'].iloc[0]} sep / {arr_sel['depth'].iloc[0]} depth]",
+        label=f"array {id} - {this_array['shape'].iloc[0]} [{this_array['n_mic'].iloc[0]} mic / {this_array['sep'].iloc[0]} sep / {this_array['depth'].iloc[0]} depth]",
     )
-    for _, row in arr_sel.iterrows():
+    for _, row in this_array.iterrows():
         ax.text(row["x"], row["y"], row["z"], (str(id) + "." + str(row["mic_id"])))
         ax.plot(
             [0, row["x"]],
@@ -383,7 +383,7 @@ sources_df["nl_z"] = np.nan
 sources_df["pure_error"] = np.nan
 sources_df["noisy_error"] = np.nan
 
-sel = array_df[array_df["arr_id"] < 20]  # select here arrays to be evaluated
+sel = array_df[array_df["arr_id"] == 0]  # select here arrays to be evaluated
 selected_arrays = sel["arr_id"].unique()
 results_list = []
 
@@ -392,8 +392,8 @@ N_ITERATIONS = 10  # number of iterations for each source
 
 for id in selected_arrays:
     c_sources_df = sources_df.copy()
-    arr_sel = sel[sel["arr_id"] == id]
-    mic_array = arr_sel[["x", "y", "z"]].to_numpy(dtype=float)
+    this_array = sel[sel["arr_id"] == id]
+    mic_array = this_array[["x", "y", "z"]].to_numpy(dtype=float)
     for s_idx, src in c_sources_df.iterrows():
         source_pos = src[["x", "y", "z"]].to_numpy(dtype=float)
         computer_pure_errors = []
@@ -429,8 +429,10 @@ for id in selected_arrays:
                 if noisy_localization.size > 0
                 else np.nan
             )
-            computer_pure_errors.append(pure_error)
-            computer_noisy_errors.append(noisy_error)
+            if not np.isnan(pure_error):
+                computer_pure_errors.append(pure_error)
+            if not np.isnan(noisy_error):
+                computer_noisy_errors.append(noisy_error)
         # add results to sources DF
         c_sources_df.loc[s_idx, "arr_id"] = int(id)
 
@@ -490,6 +492,8 @@ results = pd.DataFrame(
         "noisy_error_median",
         "pure_false_loc_count",
         "noisy_false_loc_count",
+        "pure_nan_count",
+        "noisy_nan_count",
     ]
 )
 
@@ -501,7 +505,6 @@ for lab in theta_labels:
     results[f"pure{lab}"] = np.nan
     results[f"noisy{lab}"] = np.nan
 colmap = mcolors.LinearSegmentedColormap.from_list("green_red", ["green", "red"])
-# colmap= plt.cm.PiYG
 col_norm = mcolors.Normalize(vmin=0, vmax=100)
 
 for array_id in sources_df["arr_id"].unique():
@@ -514,6 +517,8 @@ for array_id in sources_df["arr_id"].unique():
     noisy_error_median = arr_sel["noisy_error"].median()
     pure_false_loc_count = arr_sel.shape[0] - non_false_p.shape[0]
     noisy_false_loc_count = arr_sel.shape[0] - non_false_n.shape[0]
+    pure_nan_count = arr_sel["pure_error"].isna().sum()
+    noisy_nan_count = arr_sel["noisy_error"].isna().sum()
     row_index = len(results)
     print(row_index, array_id)
     results.loc[row_index] = {
@@ -524,6 +529,8 @@ for array_id in sources_df["arr_id"].unique():
         "noisy_error_median": noisy_error_median,
         "pure_false_loc_count": pure_false_loc_count,
         "noisy_false_loc_count": noisy_false_loc_count,
+        "pure_nan_count": pure_nan_count,
+        "noisy_nan_count": noisy_nan_count,
     }
 
     for i, r in enumerate(r_values):
@@ -582,32 +589,65 @@ for array_id in sources_df["arr_id"].unique():
     arr_ax.set_xlabel("x")
     arr_ax.set_ylabel("y")
     arr_ax.set_zlabel("z")
+    arr_ax.set_xlim(-1.6, 1.6)
+    arr_ax.set_ylim(-1.6, 1.6)
+    arr_ax.set_zlim(0, 1.6)
     arr_ax.set_box_aspect((2, 2, 2))
+
+    # plot pure localization theta polar plot
+    pure_ax = img.add_subplot(gs[2, 0], projection="polar")
+    pure_ax.set_title("Pure Localization Error vs Theta")
+    for r in r_values:
+        err_to_r = arr_sel[arr_sel["r"] == r]
+        err_to_r = err_to_r.sort_values(by="theta")
+        theta = []
+        error = []
+        for t in err_to_r["theta"].unique():
+            err_to_r_t = err_to_r[err_to_r["theta"] == t]
+
+            err_values = err_to_r_t["pure_error"].fillna(10)
+
+            theta.append(t)
+            error.append(err_values.median())
+        theta = np.array(theta)
+        error = np.maximum(np.array(error), 0.001)
+        if len(theta) > 2:
+            theta_smooth = np.linspace(theta.min(), theta.max(), 200)
+            # spl = make_interp_spline(theta, error, k=2)
+            spl = PchipInterpolator(theta, error)
+            error_smooth = spl(theta_smooth)
+            pure_ax.plot(
+                theta_smooth,
+                error_smooth,
+                label=f"r={r:.2f} m",
+                alpha=0.5,
+            )
+    pure_ax.set_thetalim(0, np.pi / 2)
+    pure_ax.set_rscale("log")
+    pure_ax.set_rmin(0.001)
+    pure_ax.set_rmax(10)
+    pure_ax.set_theta_zero_location("N")
+    pure_ax.set_theta_direction(-1)
+    pure_ax.set_xlabel("Theta (rad)")
+    pure_ax.set_ylabel("Pure Localization Error (m)")
+    pure_ax.legend()
 
     # plot noisy localization
     noisy_ax = img.add_subplot(gs[0, 2], projection="3d")
     noisy_ax.set_title("Noisy Localization")
     noisy_ax.scatter(0, 0, 0, color="green", s=20)
-    src = noisy_ax.scatter(
-        non_false_n["x"],
-        non_false_n["y"],
-        non_false_n["z"],
-        s=5,
-        alpha=0.5,
-        c=non_false_n["noisy_error"],
-        cmap="viridis",
+    error_color = (arr_sel["noisy_error"] / arr_sel["r"] * 100).clip(0, 100)
+    error_color = error_color.fillna(100)
+    noisy_ax.scatter(
+        arr_sel["x"],
+        arr_sel["y"],
+        arr_sel["z"],
+        s=8,
+        alpha=0.4,
+        c=col_norm(error_color),
+        cmap=colmap,
     )
-    false_n = arr_sel.drop(non_false_n.index)
-    false = noisy_ax.scatter(
-        false_n["x"],
-        false_n["y"],
-        false_n["z"],
-        s=5,
-        alpha=0.5,
-        c="red",
-        label="false localizations",
-    )
-    fig.colorbar(src, ax=noisy_ax, pad=0.1, label="Noisy Localization Error (m)")
+
     noisy_ax.legend()
     noisy_ax.set_xlabel("x")
     noisy_ax.set_ylabel("y")
@@ -636,14 +676,17 @@ for array_id in sources_df["arr_id"].unique():
     polar_ax = img.add_subplot(gs[0, 4], projection="polar")
     polar_ax.set_title("Noisy Localization Error vs Theta")
     for r in r_values:
-        non_false_n_r = non_false_n[non_false_n["r"] == r]
-        non_false_n_r = non_false_n_r.sort_values(by="theta")
+        err_to_r = arr_sel[arr_sel["r"] == r]
+        err_to_r = err_to_r.sort_values(by="theta")
         theta = []
         error = []
-        for t in non_false_n_r["theta"].unique():
-            non_false_n_r_t = non_false_n_r[non_false_n_r["theta"] == t]
+        for t in err_to_r["theta"].unique():
+            err_to_r_t = err_to_r[err_to_r["theta"] == t]
+
+            err_values = err_to_r_t["noisy_error"].fillna(10)
+
             theta.append(t)
-            error.append(non_false_n_r_t["noisy_error"].mean())
+            error.append(err_values.median())
         theta = np.array(theta)
         error = np.maximum(np.array(error), 0.001)
         if len(theta) > 2:
@@ -680,6 +723,16 @@ for array_id in sources_df["arr_id"].unique():
         phi_delta = phi_intervals[1] - phi_intervals[0]
         error_phi = []
         phi_centers = []
+        error_0_set = z_sel[
+            (
+                (z_sel["phi"] >= 2 * np.pi - phi_delta / 2)
+                | (z_sel["phi"] < phi_delta / 2)
+            )
+            & z_sel["noisy_error"].notna()
+        ]
+        error_0_value = abs(error_0_set["noisy_error"]).median()
+        error_phi.append(error_0_value)
+        phi_centers.append(0)
         for j in range(len(phi_intervals) - 1):
             phi_min = phi_intervals[j]
             phi_max = phi_intervals[j + 1]
@@ -693,15 +746,19 @@ for array_id in sources_df["arr_id"].unique():
                 phi_err_value = abs(subset["noisy_error"]).median()
                 error_phi.append(phi_err_value)
                 phi_centers.append((phi_min + phi_max) / 2)
+
+        error_phi.append(error_0_value)
+        phi_centers.append(2 * np.pi)
         # pop NaN values from error_phi and phi_centers, spline will smooth out the missimg values
+        phi_mask = np.isnan(error_phi)
+        error_phi = np.array(error_phi)[~phi_mask]
+        phi_centers = np.array(phi_centers)[~phi_mask]
         for i in range(len(error_phi)):
             if np.isnan(error_phi[i]):
                 error_phi.pop(i)
                 phi_centers.pop(i)
 
         if len(phi_centers) > 2:
-            phi_centers = np.array(phi_centers)
-            error_phi = np.array(error_phi)
             phi_smooth = np.linspace(phi_centers.min(), phi_centers.max(), 200)
             # spl = make_interp_spline(phi_centers, np.log10(error_phi), k=2)
             spl = PchipInterpolator(phi_centers, error_phi)
@@ -737,7 +794,7 @@ for array_id in sources_df["arr_id"].unique():
     # image settings
 
     img.suptitle(
-        f"Array {int(array_id)} - shape: {this_array['shape'].iloc[0]} [{this_array['n_mic'].iloc[0]} mic / {this_array['sep'].iloc[0]} sep / {this_array['depth'].iloc[0]} depth], Mean error: {noisy_error_mean:.3f} m, Dropped: {noisy_false_loc_count}",
+        f"Array {int(array_id)} - shape: {this_array['shape'].iloc[0]} [{this_array['n_mic'].iloc[0]} mic / {this_array['sep'].iloc[0]} sep / {this_array['depth'].iloc[0]} depth], Median error: {noisy_error_median:.3f} m, Dropped: {noisy_false_loc_count}",
         fontsize=18,
         fontweight="bold",
     )
@@ -754,16 +811,27 @@ compare = plt.figure(figsize=(10, 5))
 compare.suptitle("Comparison of evaluated arrays", fontsize=18, fontweight="bold")
 gg = compare.add_gridspec(1, 2, width_ratios=[1, 1])
 me = compare.add_subplot(gg[0, 0])
-me.set_title("Median Localization Error across Arrays")
+me.set_title("Median Localization Error across Arrays [m]")
 me.bar(results["arr_id"], results["noisy_error_median"], alpha=0.5)
 me.xaxis.set_ticks(results["arr_id"].unique())
 
 fl = compare.add_subplot(gg[0, 1])
-fl.set_title(
-    f"False Localization Count across Arrays (out of {c_sources_df.shape[0]} sources)"
+tot_sources = c_sources_df.shape[0]
+fl.set_title(f"False Localization [%] (out of {tot_sources} sources)")
+fl.bar(
+    results["arr_id"],
+    results["noisy_false_loc_count"] / tot_sources * 100,
+    alpha=0.5,
+    label=f"Error > {FALSE_LOC_TOLERANCE*100:.0f}% of distance",
 )
-fl.bar(results["arr_id"], results["noisy_false_loc_count"], alpha=0.5)
+fl.bar(
+    results["arr_id"],
+    results["noisy_nan_count"] / tot_sources * 100,
+    alpha=0.5,
+    label="Unable to compute",
+)
 fl.xaxis.set_ticks(results["arr_id"].unique())
+fl.legend()
 
 compare.savefig(SIM_DIR / f"comparison_arrays.png", dpi=300)
 compare.tight_layout()

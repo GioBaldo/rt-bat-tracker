@@ -170,7 +170,16 @@ def solve_eqn_22(a, b):
     bsquare_term = (b1**2 + b2**2 + b3**2) - 1
 
     term2_ii = bsquare_term * (a1**2 + a2**2 + a3**2)
-    term2 = np.sqrt(term2_i - term2_ii)
+    sqrt_arg = term2_i - term2_ii
+    if sqrt_arg < 0 or not np.isfinite(sqrt_arg):
+        print("\nINVALID SQRT")
+        print(f"a = {a}")
+        print(f"b = {b}")
+        print(f"term1 = {term1}")
+        print(f"term2_i = {term2_i}")
+        print(f"term2_ii = {term2_ii}")
+        return np.array([np.nan, np.nan])
+    term2 = np.sqrt(sqrt_arg)
     denominator = bsquare_term
     numerator1 = term1 + term2
     numerator2 = term1 - term2
