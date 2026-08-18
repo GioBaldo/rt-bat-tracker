@@ -26,11 +26,12 @@ import numpy as np
 import scipy.spatial as spatial
 
 
-def tristar_mellen_pachter(*args):
+def tristar_mellen_pachter(mic_array, di, src_id):
     """Wrapper around mellen_pachter_raquet_2003
     which only outputs positive y axis sources.
     """
-    sources = mellen_pachter_raquet_2003(*args)
+    sources = mellen_pachter_raquet_2003(mic_array, di, src_id)
+    # if not np.isfinite(sources).all():
 
     infront_of_array = []
     if sources.size > 3:
@@ -41,10 +42,14 @@ def tristar_mellen_pachter(*args):
     elif sources.size == 3:
         x, y, z = sources
         infront_of_array.append(sources)
+    if len(infront_of_array) < 1:
+        print(
+            f"({src_id}) WARNING: NaN detected in MPR output. Returning sources = {sources}, infront = {infront_of_array}."
+        )
     return infront_of_array
 
 
-def mellen_pachter_raquet_2003(mic_array, di):
+def mellen_pachter_raquet_2003(mic_array, di, src_id):
     """
     A re-formulation of the spherical-intersection method originally proposed by
     Schau & Robinson 1987.
@@ -68,6 +73,7 @@ def mellen_pachter_raquet_2003(mic_array, di):
       mining emitter location using time difference of arrival measurements. IEEE
       Transactions on Aerospace and Electronic Systems, 39(3), 1056-1058.
     """
+
     m_mics, n_dim = mic_array.shape
     if not n_dim == 3:
         raise NotImplementedError(
@@ -83,6 +89,11 @@ def mellen_pachter_raquet_2003(mic_array, di):
     # eqn. 12
     z = np.sum(S**2, 1) - di**2
     z *= 0.5
+    if not np.all(z >= 0):
+        print(
+            f"({src_id}) WARNING: Not all z values are positive. This may indicate an invalid solution."
+        )
+        print(f"z = {z}")
     # eqn. 17 - without the weighting matrix R
     try:
         inv_StS = np.linalg.inv(np.dot(S.T, S))
@@ -92,11 +103,11 @@ def mellen_pachter_raquet_2003(mic_array, di):
         # eqn. 18
         b = np.dot(inv_StS_St, di)
         # eqn. 22
-        Rs_12 = solve_eqn_22(a, b)
+        Rs_12 = solve_eqn_22(a, b, src_id)
         # substitute Rs into eqn. 19
         xs = choose_correct_mpr_solutions(mic_array, Rs_12, (a, b), di)
     except Exception as e:
-        print(f"ERROR in MPR: {e}")
+        print(f"({src_id}) ERROR in MPR: {e}")
         return np.array([])
     return xs
 
@@ -148,7 +159,7 @@ def choose_correct_mpr_solutions(mic_array, Rs_12, a_b, obs_di):
     return xs
 
 
-def solve_eqn_22(a, b):
+def solve_eqn_22(a, b, rnd_id):
     """
     Implements Equation 22 in MPR 2003.
 
@@ -172,7 +183,7 @@ def solve_eqn_22(a, b):
     term2_ii = bsquare_term * (a1**2 + a2**2 + a3**2)
     sqrt_arg = term2_i - term2_ii
     if sqrt_arg < 0 or not np.isfinite(sqrt_arg):
-        print("\nINVALID SQRT")
+        print(f"({rnd_id}) INVALID SQRT")
         print(f"a = {a}")
         print(f"b = {b}")
         print(f"term1 = {term1}")
