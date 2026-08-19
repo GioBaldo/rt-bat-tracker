@@ -835,12 +835,14 @@ for array_id in sources_df["arr_id"].unique():
             )
 
     for _, row in this_array.iterrows():
+        if row["x"] == 0 and row["y"] == 0:
+            phi_ax.scatter(0, 0, color="red", s=10)
+            continue
         line_angle = np.arctan2(row["y"], row["x"])
         if line_angle < 0:
             line_angle += 2 * np.pi
         phi_ax.axvline(
             line_angle,
-            # np.sqrt(row["x"] ** 2 + row["y"] ** 2) * np.cos(row["z"]),
             linestyle="--",
             linewidth=1,
             color="red",
