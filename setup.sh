@@ -41,7 +41,8 @@ fi
 ENV_NAME=$(grep "^name:" environment.yml | head -n 1 | awk '{print $2}')
 
 if [ -z "$ENV_NAME" ]; then
-    echo "ERROR: Unable to detect the environment name from environment.yml"
+    ENV_NAME="BAT"
+    echo "ERROR: Unable to detect the environment name from environment.yml, using BAT as default"
     exit 1
 fi
 
