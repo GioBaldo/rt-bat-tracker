@@ -69,4 +69,6 @@ fi
 echo ""
 echo "======================================================================"
 echo " Installation completed successfully  !"
+echo " Activate the environment with: conda activate $ENV_NAME"
+echo " then move to src/rt_bat_tracker and run <python main.py> "
 echo "======================================================================"
