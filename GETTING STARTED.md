@@ -7,6 +7,16 @@ Questa guida fornisce le istruzioni passo-passo per installare **Miniconda** (o 
 > 2. Installazione su una macchina **Debian 13.5 nativa/remota**, clonando il repository da GitHub o trasferendo i file.
 
 ---
+Se Debian è una macchina distinta e il repository è pubblicato su GitHub:
+
+1. **Clona il repository GitHub:**
+   ```bash
+   cd ~
+   git clone https://github.com/tuo-utente/rt-bat-tracker.git
+   cd rt-bat-tracker
+   ```
+   *(Sostituisci l'URL con l'indirizzo reale del repository GitHub).*
+
 
 ## Parte 1: Installazione di Miniconda su Debian 13.5
 
@@ -17,6 +27,12 @@ Apri il terminale Debian ed esegui:
 ```bash
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y curl wget git build-essential
+```
+oppure 
+```
+sudo apt update
+sudo apt upgrade
+sudo apt install build-essential libasound2-dev libportaudio2 portaudio19-dev
 ```
 
 ### 2. Scaricare lo script di installazione di Miniconda
@@ -47,42 +63,10 @@ conda --version
 
 ---
 
-## Parte 2: Preparazione dell'Ambiente Virtuale
-
-È raccomandabile creare un ambiente Conda dedicato per il progetto `rt-bat-tracker`.
-
-```bash
-# Creazione dell'ambiente (puoi specificare la versione di Python richiesta dal progetto)
-conda create -n bat-tracker python=3.10 -y
-
-# Attivazione dell'ambiente
-conda activate bat-tracker
-```
-
----
-
-## Parte 3: Installazione di `rt-bat-tracker`
-
-
-
 ### Opzione B: Uso di Debian Nativo o Server Remoto (Clonazione via Git)
 
-Se Debian è una macchina distinta e il repository è pubblicato su GitHub:
 
-1. **Clona il repository GitHub:**
-   ```bash
-   cd ~
-   git clone https://github.com/tuo-utente/rt-bat-tracker.git
-   cd rt-bat-tracker
-   ```
-   *(Sostituisci l'URL con l'indirizzo reale del repository GitHub).*
 
-2. **Installa il pacchetto:**
-   ```bash
-   pip install -e .
-   ```
-
----
 
 
 ## Parte 4: Gestione delle Dipendenze
@@ -92,7 +76,7 @@ A seconda della struttura del repository `rt-bat-tracker`:
 * **Se è presente un file `environment.yml`:**
   ```bash
   conda env create -f environment.yml
-  conda activate rt-bat-tracker
+  conda activate BAT
   ```
 
 * **Se è presente un file `requirements.txt`:**
@@ -106,6 +90,12 @@ A seconda della struttura del repository `rt-bat-tracker`:
   ```
 
 ---
+2. **Installa il pacchetto:**
+inside rt-bat-tracker
+   ```bash
+   pip install -e .
+   ```
+
 
 ## Verifica dell'Installazione
 

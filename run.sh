@@ -2,6 +2,7 @@
 
 cd ~/rt-bat-tracker
 echo ACTIVATING CONDA ENVIRONMENT
+conda init
 conda activate BAT
 echo RUNNING BAT TRACKER
 cd src/rt_bat_tracker
