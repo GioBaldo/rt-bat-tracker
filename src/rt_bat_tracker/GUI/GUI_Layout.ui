@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1124</width>
-    <height>892</height>
+    <width>1024</width>
+    <height>600</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,30 +17,30 @@
    <widget class="GLViewWidget" name="pathViewer">
     <property name="geometry">
      <rect>
-      <x>10</x>
-      <y>20</y>
-      <width>891</width>
-      <height>651</height>
+      <x>12</x>
+      <y>5</y>
+      <width>785</width>
+      <height>400</height>
      </rect>
     </property>
    </widget>
    <widget class="PlotWidget" name="specViewer">
     <property name="geometry">
      <rect>
-      <x>10</x>
-      <y>680</y>
-      <width>1081</width>
-      <height>161</height>
+      <x>12</x>
+      <y>410</y>
+      <width>1000</width>
+      <height>195</height>
      </rect>
     </property>
    </widget>
    <widget class="QScrollArea" name="historyArea">
     <property name="geometry">
      <rect>
-      <x>910</x>
-      <y>20</y>
-      <width>181</width>
-      <height>651</height>
+      <x>802</x>
+      <y>5</y>
+      <width>210</width>
+      <height>400</height>
      </rect>
     </property>
     <property name="widgetResizable">
@@ -63,8 +63,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1124</width>
-     <height>23</height>
+     <width>1024</width>
+     <height>5</height>
     </rect>
    </property>
   </widget>
