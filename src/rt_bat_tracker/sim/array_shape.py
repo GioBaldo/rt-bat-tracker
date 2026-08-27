@@ -273,31 +273,23 @@ def plot_sources(sources_df, type="src", array_df=None, id=1):
 
 
 # %% generate arrays
-MIC_SEPARATION = [1]  # in meters
-MIC_DEPTH = [0.7]  # in meters
-N_MIC = [4, 4, 5, 5, 6, 6, 7, 7]
-ARRAY_SHAPE = ["random", "custom"]  # "star", "prism", "paraboloid", "random"]
+MIC_SEPARATION = [0.8, 1.2]  # in meters
+MIC_DEPTH = [0.1, 0.3, 0.5, 0.7, 1.1]  # in meters
+N_MIC = [6, 7]
+ARRAY_SHAPE = [
+    "custom",
+]  # "star", "prism", "paraboloid", "random", "custom", "test"]
 
 arrays = []
 
 arr_id = 0
 
 for shape in ARRAY_SHAPE:
-    if shape == "custom":
-        custom_arrays = pd.read_csv(
-            "custom_arrays.csv",
-            header=None,
-            names=[
-                "arr_id",
-                "shape",
-                "n_mic",
-                "sep",
-                "depth",
-                "mic_id",
-                "x",
-                "y",
-                "z",
-            ],
+    if shape == "custom" or shape == "test":
+        custom_arrays = (
+            pd.read_csv("custom_arrays.csv")
+            if shape == "custom"
+            else pd.read_csv("test_arrays.csv")
         )
         for custom_arr_id in custom_arrays["arr_id"].unique():
             c_arr = custom_arrays[custom_arrays["arr_id"] == custom_arr_id].sort_values(
@@ -307,7 +299,7 @@ for shape in ARRAY_SHAPE:
             n_mic = c_arr["n_mic"].iloc[0]
             if n_mic != c_xyz.shape[0]:
                 raise ValueError(
-                    f"ACHTUNG!!! Number of microphones in custom array {custom_arr_id} does not match the number of rows in the CSV file."
+                    f"ACHTUNG!!! Number of microphones in custom array {custom_arr_id} does not match the number of rows in the CSV file. Check if the id is duplicate."
                 )
             shape = c_arr["shape"].iloc[0]
             sep = c_arr["sep"].iloc[0]
@@ -432,7 +424,7 @@ sel = array_df[array_df["arr_id"] > -1]  # select here arrays to be evaluated
 selected_arrays = sel["arr_id"].unique()
 results_list = []
 
-NOISE_AMOUNT = 0.001  # in meters
+NOISE_AMOUNT = 0.01  # in meters
 N_ITERATIONS = 10  # number of iterations for each source
 
 for id in selected_arrays:
@@ -836,7 +828,7 @@ for array_id in sources_df["arr_id"].unique():
 
     for _, row in this_array.iterrows():
         if row["x"] == 0 and row["y"] == 0:
-            phi_ax.scatter(0, 0, color="red", s=10)
+            phi_ax.scatter(0, 0, color="red", s=30)
             continue
         line_angle = np.arctan2(row["y"], row["x"])
         if line_angle < 0:
@@ -874,7 +866,11 @@ for array_id in sources_df["arr_id"].unique():
     plt.show()
 
 compare = plt.figure(figsize=(22, 16))
-compare.suptitle("Comparison of evaluated arrays", fontsize=18, fontweight="bold")
+compare.suptitle(
+    f"SIM {sim_id}: Comparison of evaluated arrays [noise : {NOISE_AMOUNT*1000:.1f} mm]",
+    fontsize=18,
+    fontweight="bold",
+)
 gg = compare.add_gridspec(2, 2, width_ratios=[1, 1])
 me = compare.add_subplot(gg[0, 0])
 me.set_title("Median Localization Error across Arrays [m]")

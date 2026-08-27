@@ -130,6 +130,7 @@ class MainWindow(QMainWindow):
         self.pathViewer.setCameraPosition(distance=20, azimuth=-50, elevation=30)
 
     def _update_spec_viewer(self):
+        """Updates the spectrogram viewer with the latest data from the active event."""
         if self._session.active_event is not None:
             ev = self._session.active_event
             available_data = min(len(ev.spectrogram), np.shape(self.spec_image_data)[1])
@@ -144,7 +145,7 @@ class MainWindow(QMainWindow):
                 )
 
     def _setup_spec_viewer(self):
-
+        """Initializes the spectrogram viewer with a blank image and sets up the axes."""
         spec_image_height = 129
         spec_image_width = 500  # 1081
         self.spec_image_data = np.zeros(

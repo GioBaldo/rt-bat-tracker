@@ -9,6 +9,11 @@ logger.setLevel(logging.INFO)
 
 
 class PlayTone:
+    """
+    Plays a tone of given frequency and duration on the specified channel(s) trough the soundcard using ALSA.
+    This function is used only if --beep parse argument is specified in the command line, together with the desired parametrs: duration [ms], frequency [kHz] and rate [calls/sec]
+    """
+
     def __init__(self, state, cfg):
         self.cfg = cfg
         self.state = state
@@ -78,7 +83,11 @@ class PlayTone:
         return sweep
 
     def beep(self, tone, interval):
-
+        """Play the tone on the specified channel(s) at the given interval.
+        Arguments:
+            tone: numpy array of int32 samples
+            interval: time in seconds between each beep
+        """
         try:
             num_chunks = len(tone) // self.blocksize
 
@@ -101,7 +110,14 @@ class PlayTone:
             logger.error("beep thread crashed:", repr(e))
 
     def output(self, tone, ch, num_chunks, amp):
+        """Called by beep() to write the tone to the ALSA PCM device for the specified channel.
 
+        Args:
+            tone (_type_): numpy array of int32 samples
+            ch (_type_): channel number(s)
+            num_chunks (_type_): number of chunks of the tone to write, integer value related to the playback blocksize
+            amp (_type_): amplitude multiplier
+        """
         for chunk in range(num_chunks):
 
             block = tone[chunk * self.blocksize : (chunk + 1) * self.blocksize]
