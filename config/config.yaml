@@ -1,9 +1,6 @@
 mode: "alsa"
 SAVE_RESULTS: False
 
-mode: "alsa"
-SAVE_RESULTS: False
-
 blocksize: 1024
 fs: 192000
 channels: 10
