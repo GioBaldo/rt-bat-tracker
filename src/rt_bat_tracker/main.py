@@ -96,7 +96,7 @@ def main():
     cfg.file = args.file
     cfg.device = args.device
     cfg.micLayout_path = str(os.path.join(projPaths.mic_layout_dir, cfg.default_layout))
-    cfg.GUIpath = str(os.path.join(projPaths.gui_dir, "GUI_Layout.ui"))
+    cfg.GUIpath = str(os.path.join(projPaths.gui_dir, "GUI_Layout_resize.ui"))
 
     logger.info("Modalità di acquisizione: %s", cfg.mode)
 
