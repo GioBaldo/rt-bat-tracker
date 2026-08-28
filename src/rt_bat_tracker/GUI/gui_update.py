@@ -23,7 +23,7 @@ def run(state, cfg, session):
     app = QApplication(sys.argv)
 
     window = MainWindow(state, cfg, session)
-    window.showMaximized()
+    window.showFullScreen()
 
     app.aboutToQuit.connect(window.stop)  # window closed → stops all threads
 
