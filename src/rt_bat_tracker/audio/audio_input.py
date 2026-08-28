@@ -37,6 +37,11 @@ def run(state, cfg):
     Instantiates the correct source based on cfg.mode,
     calls source.start() which blocks until shutdown,
     then calls source.stop() for cleanup.
+
+    Input mode defined in cfg.mode:
+        - "portAudio" : live capture via sounddevice/PortAudio
+        - "alsa" : live capture via ALSA (Linux only)
+        - "audiofile" : playback of a WAV file with real-time pacing
     """
 
     # source selector

@@ -6,13 +6,13 @@ fs: 192000
 channels: 10
 dtype: "float32"
 default_file: "single_bat_1234.wav"
-default_layout: "small_array.csv" # "single_bat_1234.csv"
-default_device: 1 # 10 WOOOW CABLE Output  (VB-Audio V, MME (16 in, 0 out)
+default_layout: "single_bat_1234.csv"
+default_device: 18
 
 # Tunable parameters
-MIN_CALL_DURATION: 0.012 # minimum call duration in seconds, set the minimum size of the call chunk to process
-MAX_CALL_DURATION: 0.03 # maximum call duration in seconds, set the maximum size of the call chunk to process
-event_time: 15
+call_time : 0.03 # minimum call duration in seconds, used to set the minimum size of the call chunk to process
+event_time : 15
+
 
 # Source detection parameters
 vsound: 340

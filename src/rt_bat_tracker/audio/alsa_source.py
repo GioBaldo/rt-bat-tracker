@@ -11,15 +11,15 @@ logger.setLevel(logging.WARNING)
 
 class AlsaAudioSource:
     """
-    Captures live audio from a hardware device via Alsa in Raspian throug a focusrite Scarlett 18i20.
+    Captures live audio from a hardware device via Alsa driver through a focusrite Scarlett 18i20.
     Uses PyAlsaAudio library by @lassimmisch for bindings between alsa and python.
 
     PCM object needs to be configured with some values:
-        PCM(type: int = PCM_PLAYBACK, mode: int = PCM_NORMAL, rate: int = 44100, channels: int = 2,
-        format: int = PCM_FORMAT_S16_LE, periodsize: int = 32, periods: int = 4,
+        PCM(type: int = PCM_PLAYBACK, mode: int = PCM_NORMAL, rate: int = 192000, channels: int = 10,
+        format: int = PCM_FORMAT_S32_LE, periodsize: int = 1024, periods: int = 1,
         device: str = 'default', cardindex: int = -1) -> PCM
 
-    some of them can be change by the use and are given as inputs for this class, others are hard-coded in order
+    some of them can be changed by the user and are given as inputs for this class, others are hard-coded in order
     to have the device properly working within the linux-alsa-focusrite fixed environment
 
     inputs:
@@ -30,15 +30,13 @@ class AlsaAudioSource:
         - blocksize (periodsize)
 
 
-    this audiosource can just be started with start() and stopped with stop(). blocks are continuously pushed to the shared
-    queue audio_queue as an np.array of shape (blocksize, channels) as <np.float32> samples
+    this audiosource can just be started with start() and stopped with stop(). blocks are continuously pushed to the shared queue audio_queue as an np.array of shape (blocksize, channels) as <np.float32> samples
 
     the hardcoded values are
     type: alsa.PCM_CAPTURE [1], the PCM is in CAPTURE mode for RECORDING (PLAYBACK otherwise)
-    mode: alsa.PCM_NORMAL [0], the PCM is in NORMAL mode then BLOCKS the caller until a frame is full, nice to avoid empty reads
-                (NONBLOCK otherwise)
+    mode: alsa.PCM_NORMAL [0], the PCM is in NORMAL mode then BLOCKS the caller until a frame is full, nice to avoid empty reads (NONBLOCK otherwise)
     format: int = PCM_FORMAT_S32_LE actually the only sample format that works
-    periods: int = 1, if more than one then a a larger number of blocks are passed each time
+    periods: int = 1, if more than one then a larger number of blocks are passed each time
     cardindex: int = -1 NON USED
     """
 
@@ -148,6 +146,7 @@ class AlsaAudioSource:
         logger.info("PCM closed")
 
     def compute_max(self, x):
+        """Used for visualization of the input signal for debugging, not used in the main processing chain."""
         mag = []
         thr = 0.05
         m = np.max(x.astype(np.float32), axis=0)
@@ -159,12 +158,14 @@ class AlsaAudioSource:
         return mag
 
     def to_nparray(self, block):
+        """Converts the raw block of bytes read from the alsa PCM into a numpy array of shape (blocksize, channels) with float32 samples normalized to [-1, 1]."""
         xAr = np.frombuffer(block, dtype=np.int32)
         xAr = xAr.reshape(-1, 10)[:, : self.channels]
         xAr = xAr.astype(np.float32) / (2**31)
         return xAr
 
     def get_timestamp(self):
+        """Returns the timestamp of the current block in nanoseconds, based on the selected PCM timestamp type."""
         match self.timestamp_type:
             case "sync":
                 return self.chunknum * self.blocktime
@@ -188,6 +189,7 @@ class AlsaAudioSource:
                 )
 
     def timestamp_init(self):
+        """Initializes the timestamping mechanism based on the selected PCM timestamp type. Sets the timestamp bias and timer bias for accurate timing of audio blocks."""
         match self.timestamp_type:
             case "sync":
                 self.timestamp_bias = 0
@@ -226,4 +228,5 @@ class AlsaAudioSource:
         )
 
     def counter_time(self):
+        """Returns the elapsed time in nanoseconds since the timestamp bias was set, based on the system's performance counter."""
         return time.perf_counter_ns() - self.timer_bias
