@@ -37,7 +37,7 @@ from rt_bat_tracker.utils.paths import get_project_paths
 from rt_bat_tracker.utils.session_class import Session
 import rt_bat_tracker.audio.audio_input as audio_input
 import rt_bat_tracker.tracking.beta_processing as processing
-import rt_bat_tracker.GUI.gui_update as gui
+import rt_bat_tracker.GUI.GUI as gui
 import rt_bat_tracker.utils.measure as measure
 from rt_bat_tracker.utils.dataClass import SharedState
 from rt_bat_tracker.utils.json_formatter import JsonFormatter
