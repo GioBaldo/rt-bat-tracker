@@ -55,10 +55,13 @@ class MainWindow(QMainWindow):
         self._cfg = cfg
         self.timer = int(1000 / self._cfg.update_fps)
         self.setWindowTitle(self._session.session_name)
-
+        self.selected_event_index = 0
+        self.playback_speed = 1
+        self.playback_counter = 0
         # import widgets and connect signals
         self._import_ui_widgets()
         self._connect_ui_signals()
+        self._live_layout()  # set initial layout to live mode
 
         # Inizializzazione dei visualizzatori
         try:
@@ -76,49 +79,6 @@ class MainWindow(QMainWindow):
         self._poller.timeout.connect(self._update)
         self._poller.start()
 
-    def _connect_signal_safely(self, widget_name, signal_name, slot):
-        """Metodo helper per connettere segnali evitando crash se il widget non esiste."""
-        widget = getattr(self, widget_name, None)
-        if widget is not None:
-            signal = getattr(widget, signal_name, None)
-            if signal is not None:
-                signal.connect(slot)
-            else:
-                logger.warning(
-                    f"Il segnale '{signal_name}' non esiste sul widget '{widget_name}'."
-                )
-        else:
-            logger.error(
-                f"Widget '{widget_name}' non trovato nell'interfaccia UI! Controlla l'objectName su Qt Designer."
-            )
-
-    def _connect_ui_signals(self):
-        """Collega i segnali usando il wrapper sicuro."""
-        self._connect_signal_safely("ExitButton", "clicked", self.stop)
-        self._connect_signal_safely(
-            "PlayButton", "clicked", self._on_play_pause_clicked
-        )
-        self._connect_signal_safely(
-            "LeftButton", "clicked", self._on_slowmo_clicked
-        )
-        self._connect_signal_safely(
-            "RightButton", "clicked", self._on_stop_clicked
-        )
-        self._connect_signal_safely(
-            "pushButton_4", "clicked", self._on_mode_toggle_clicked
-        )
-        self._connect_signal_safely(
-            "ThresholdSlider", "valueChanged", self._on_threshold_changed
-        )
-    def _import_ui_widgets(self):
-        """Importa i widget dalla UI e li assegna come attributi della classe."""
-        self.ExitButton = getattr(self, "ExitButton", None)
-        self.PlayButton = getattr(self, "PlayButton", None)
-        self.LeftButton = getattr(self, "LeftButton", None)
-        self.RightButton = getattr(self, "RightButton", None)
-        self.ToggleButton = getattr(self, "pushButton_4", None)
-
-
     def _update(self):
         if self._state.stop_event.isSet():
             self._session.update(None, None)
@@ -130,14 +90,29 @@ class MainWindow(QMainWindow):
                 time.time() - self._state.gui_t_start,
             )
             self._state.gui_running_flag = True
-
-        self._session.write_audiofile()
-        self._update_path_viewer()
-        self._update_spec_viewer()
-        self._update_vu_meter()
-
-##VIEWERS FUNCTIONS##
-##PATH VIEWER###
+        if self._state.is_live:
+            self._session.write_audiofile()
+            self._update_path_viewer()
+            self._update_spec_viewer()
+            self._update_vu_meter()
+        else:
+            try:
+                self.selected_event = self._session.events[self.selected_event_index]
+            except IndexError:
+                logger.info("Selected event index out of bounds for events list. [or no events available]")
+                time.sleep(1)
+                self._state.is_live = True
+                self._live_layout()
+                return
+            self.playback_time = 1/self._cfg.update_fps * self.playback_speed * self.playback_counter
+            if self.playback_time >= selected_event.duration: 
+                self.playback_counter = 0  
+                self.playback_time = 0          
+            self._show_selected_event(self.selected_event, self.playback_time)
+            self.playback_counter += 1
+            
+###VIEWERS FUNCTIONS##
+###PATH VIEWER###
     def _setup_path_viewer(self, micxyz):
         path_viewer = getattr(self, "pathViewer", None)
         if path_viewer is None:
@@ -177,9 +152,8 @@ class MainWindow(QMainWindow):
 
         points = np.asarray(points, dtype=np.float32)
         colors = np.asarray(colors, dtype=np.float32)
-        if hasattr(self, "_source_plot"):
-            self._source_plot.setData(pos=points, color=colors)
-
+        
+        self._source_plot.setData(pos=points, color=colors)
 
 ###SPECTROGRAM VIEWER##
     def _setup_spec_viewer(self):
@@ -218,7 +192,7 @@ class MainWindow(QMainWindow):
 
                 self.spectrogram.setImage(self.spec_image_data)
 
-####VU METER VIEWER##
+###VU METER VIEWER##
     def _setup_vu_meter(self):
         vu_meter = getattr(self, "VUMeter", None)
         
@@ -261,16 +235,71 @@ class MainWindow(QMainWindow):
         )
         vu_meter.addItem(self.threshold_line)
 
-
-
     def _update_vu_meter(self):
         if hasattr(self, "vu_bar"):
             level = self._state.EMA_rms
             self.vu_bar.setOpts(height=[self._rms_to_norm(level)])
             self.threshold_line.setPos(self._rms_to_norm(self._state.threshold))
 
+###PLAYBACK FUNCTIONS##
+    def _show_selected_event(self, event, playback_time):
+        """
+        Given the event and the time in seconds this fucntion shows all the points in the event before the playback_time
+        and the spectrogram accordingly.
+        """
+        points, colors = self._session.read_for_playback(event, playback_time)
+        points = np.asarray(points, dtype=np.float32)
+        colors = np.asarray(colors, dtype=np.float32)
+        self._source_plot.setData(pos=points, color=colors)
+
+        self.spec_image_data = selsf._session.get_spectrogram_for_playback(event, playback_time, self.spec_image_data.shape[1])
+        self.spectrogram.setImage(self.spec_image_data)
+
 ##BUTTON CALLBACKS##
-  
+    def _connect_signal_safely(self, widget_name, signal_name, slot):
+        """Metodo helper per connettere segnali evitando crash se il widget non esiste."""
+        widget = getattr(self, widget_name, None)
+        if widget is not None:
+            signal = getattr(widget, signal_name, None)
+            if signal is not None:
+                signal.connect(slot)
+            else:
+                logger.warning(
+                    f"Il segnale '{signal_name}' non esiste sul widget '{widget_name}'."
+                )
+        else:
+            logger.error(
+                f"Widget '{widget_name}' non trovato nell'interfaccia UI! Controlla l'objectName su Qt Designer."
+            )
+
+    def _connect_ui_signals(self):
+        """Collega i segnali usando il wrapper sicuro."""
+        self._connect_signal_safely("ExitButton", "clicked", self.stop)
+        self._connect_signal_safely(
+            "PlayButton", "clicked", self._on_play_pause_clicked
+        )
+        self._connect_signal_safely(
+            "LeftButton", "clicked", self._on_slowmo_clicked
+        )
+        self._connect_signal_safely(
+            "RightButton", "clicked", self._on_stop_clicked
+        )
+        self._connect_signal_safely(
+            "pushButton_4", "clicked", self._on_mode_toggle_clicked
+        )
+        self._connect_signal_safely(
+            "ThresholdSlider", "valueChanged", self._on_threshold_changed
+        )
+
+    def _import_ui_widgets(self):
+        """Importa i widget dalla UI e li assegna come attributi della classe."""
+        self.ExitButton = getattr(self, "ExitButton", None)
+        self.PlayButton = getattr(self, "PlayButton", None)
+        self.LeftButton = getattr(self, "LeftButton", None)
+        self.RightButton = getattr(self, "RightButton", None)
+        self.ToggleButton = getattr(self, "pushButton_4", None)
+        self.ThresholdSlider = getattr(self, "ThresholdSlider", None)
+
     def _on_play_pause_clicked(self):
         logger.info("Pulsante Play/Pause premuto")
 
@@ -283,12 +312,9 @@ class MainWindow(QMainWindow):
     def _on_mode_toggle_clicked(self):
         self._state.is_live = not self._state.is_live
         if self._state.is_live:
-            self.ToggleButton.setText("Live")
-            self.ToggleButton.setStyleSheet("background-color: green; color: white;")
+            self._live_layout()
         else:
-            self.ToggleButton.setText("Playback")
-            self.ToggleButton.setStyleSheet("background-color: orange; color: black;")
-
+            self._playback_layout()
 
         logger.info("Pulsante Live/Playback premuto")
 
@@ -307,6 +333,22 @@ class MainWindow(QMainWindow):
         
         # 3. Clamp output between 0.0 and 1.0
         return float(np.clip(norm, 0.0, 1.0))    
+
+    def _live_layout(self):
+        self.ToggleButton.setText("Live")
+        self.ToggleButton.setStyleSheet("background-color: green; color: white;")
+        self.RightButton.setEnabled(False)
+        self.LeftButton.setEnabled(False)
+        self.PlayButton.setEnabled(False)
+        self.ThresholdSlider.setEnabled(True)
+    
+    def _playback_layout(self):
+        self.ToggleButton.setText("Playback")
+        self.ToggleButton.setStyleSheet("background-color: orange; color: black;")
+        self.RightButton.setEnabled(True)
+        self.LeftButton.setEnabled(True)
+        self.PlayButton.setEnabled(True)
+        self.ThresholdSlider.setEnabled(False)
 
     def stop(self):
         logger.info("Arresto della GUI e chiusura sessione...")

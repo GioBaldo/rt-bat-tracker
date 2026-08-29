@@ -177,3 +177,19 @@ class Session:
         logger.debug(
             f"updated fft: actual size [{np.shape(self.active_event.spectrogram)} type {type(magnitude[1])} took {time.perf_counter_ns() - taim} nanosec]"
         )
+
+    def read_spectrogram_for_playback(self, event, playback_time, (bins, num_frames)):
+        """
+        Given the event and the time in seconds this fucntion returns the spectrogram of the event before the playback_time
+        """
+        if event is not None:
+            # Calculate the number of frames to include based on playback_time
+            frame_idx = int(playback_time * self._cfg.fs / self._cfg.HOP_SIZE)
+            frame_idx = min(frame_idx, len(event.spectrogram))
+            num_frames = min(num_frames, frame_idx)
+            array = np.zeros((num_frames, bins), dtype=np.uint8)
+            data = np.array(event.spectrogram[frame_idx - num_frames:frame_idx], dtype=np.uint8)
+            array[:data.shape[0], :data.shape[1]] = data
+            return array
+        else:
+            return np.array([])
