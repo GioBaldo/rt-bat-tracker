@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5.uic import loadUi
 
 logger = logging.getLogger("GUIUPDATE")
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 
 def run(state, cfg, session):
@@ -56,7 +56,8 @@ class MainWindow(QMainWindow):
         self.timer = int(1000 / self._cfg.update_fps)
         self.setWindowTitle(self._session.session_name)
 
-        # Collegamento sicuro dei segnali
+        # import widgets and connect signals
+        self._import_ui_widgets()
         self._connect_ui_signals()
 
         # Inizializzazione dei visualizzatori
@@ -109,6 +110,14 @@ class MainWindow(QMainWindow):
         self._connect_signal_safely(
             "ThresholdSlider", "valueChanged", self._on_threshold_changed
         )
+    def _import_ui_widgets(self):
+        """Importa i widget dalla UI e li assegna come attributi della classe."""
+        self.ExitButton = getattr(self, "ExitButton", None)
+        self.PlayButton = getattr(self, "PlayButton", None)
+        self.LeftButton = getattr(self, "LeftButton", None)
+        self.RightButton = getattr(self, "RightButton", None)
+        self.ToggleButton = getattr(self, "pushButton_4", None)
+
 
     def _update(self):
         if self._state.stop_event.isSet():
@@ -127,21 +136,8 @@ class MainWindow(QMainWindow):
         self._update_spec_viewer()
         self._update_vu_meter()
 
-    def _update_path_viewer(self):
-        pos, timestamp = self._state.get_result()
-        logger.debug(
-            f"GUI received this point: {pos} [timestamp: {timestamp}]"
-        )
-        self._session.update(pos, timestamp)
-        points, colors, all_times = self._session.read_event(
-            self._session.active_event
-        )
-
-        points = np.asarray(points, dtype=np.float32)
-        colors = np.asarray(colors, dtype=np.float32)
-        if hasattr(self, "_source_plot"):
-            self._source_plot.setData(pos=points, color=colors)
-
+##VIEWERS FUNCTIONS##
+##PATH VIEWER###
     def _setup_path_viewer(self, micxyz):
         path_viewer = getattr(self, "pathViewer", None)
         if path_viewer is None:
@@ -169,24 +165,23 @@ class MainWindow(QMainWindow):
 
         path_viewer.setCameraPosition(distance=20, azimuth=-50, elevation=30)
 
-    def _update_spec_viewer(self):
-        if self._session.active_event is not None and hasattr(
-            self, "spectrogram"
-        ):
-            ev = self._session.active_event
-            available_data = min(
-                len(ev.spectrogram), np.shape(self.spec_image_data)[1]
-            )
+    def _update_path_viewer(self):
+        pos, timestamp = self._state.get_result()
+        logger.debug(
+            f"GUI received this point: {pos} [timestamp: {timestamp}]"
+        )
+        self._session.update(pos, timestamp)
+        points, colors, all_times = self._session.read_event(
+            self._session.active_event
+        )
 
-            if available_data > 0:
-                self.spec_image_data.fill(0)
-                data = np.array(
-                    ev.spectrogram[-available_data:], dtype=np.uint8
-                )
-                self.spec_image_data[:, :available_data] = data.T
+        points = np.asarray(points, dtype=np.float32)
+        colors = np.asarray(colors, dtype=np.float32)
+        if hasattr(self, "_source_plot"):
+            self._source_plot.setData(pos=points, color=colors)
 
-                self.spectrogram.setImage(self.spec_image_data)
 
+###SPECTROGRAM VIEWER##
     def _setup_spec_viewer(self):
         spec_viewer = getattr(self, "specViewer", None)
         if spec_viewer is None:
@@ -207,24 +202,75 @@ class MainWindow(QMainWindow):
         axis = spec_viewer.getAxis("left")
         axis.setTicks([[(0, "10k"), (64, "50k"), (128, "90k")]])
 
+    def _update_spec_viewer(self):
+        if self._session.active_event is not None:
+            ev = self._session.active_event
+            available_data = min(
+                len(ev.spectrogram), np.shape(self.spec_image_data)[1]
+            )
+
+            if available_data > 0:
+                self.spec_image_data.fill(0)
+                data = np.array(
+                    ev.spectrogram[-available_data:], dtype=np.uint8
+                )
+                self.spec_image_data[:, :available_data] = data.T
+
+                self.spectrogram.setImage(self.spec_image_data)
+
+####VU METER VIEWER##
     def _setup_vu_meter(self):
         vu_meter = getattr(self, "VUMeter", None)
+        
         if vu_meter is None:
-            logger.warning("Widget 'VUMeter' non trovato nella UI.")
+            logger.warning("Widget 'VUMeter' not found in UI.")
             return
-
+        
+        # Hide axes and disable mouse interaction (panning/zooming)
         vu_meter.hideAxis("bottom")
         vu_meter.hideAxis("left")
-        self.vu_bar = pg.BarGraphItem(x=[0.5], height=[0], width=0.8, brush="g")
+        vu_meter.setMouseEnabled(x=False, y=False)
+        
+        # Strict range setup: Y from 0 (min dB) to 1 (full scale / 0 dB)
+        vu_meter.setYRange(0, 1, padding=0)
+        vu_meter.setXRange(0, 1, padding=0)
+        vu_meter.disableAutoRange()
+        
+        # Define dB limits for visualization
+        self.min_db = -60.0  # Floor (Y = 0.0)
+        self.max_db = 0.0    # Ceiling / Full Scale (Y = 1.0)
+        
+        # Create the VU bar item pinned at y0=0
+        self.vu_bar = pg.BarGraphItem(
+            x=[0.5], 
+            y0=[0], 
+            height=[0.3], 
+            width=0.8, 
+            brush="g"
+        )
         vu_meter.addItem(self.vu_bar)
-        vu_meter.setYRange(0, 100)
+        
+        # Convert linear threshold directly to normalized [0, 1] GUI position
+        norm_thresh = self._rms_to_norm(self._state.threshold)
+        
+        # Create the threshold line
+        self.threshold_line = pg.InfiniteLine(
+            angle=0, 
+            pos=norm_thresh, 
+            pen=pg.mkPen("r", width=2)
+        )
+        vu_meter.addItem(self.threshold_line)
+
+
 
     def _update_vu_meter(self):
-        if hasattr(self, "vu_bar") and hasattr(self._session, "get_vu_level"):
-            level = self._session.get_vu_level()
-            self.vu_bar.setOpts(height=[level])
+        if hasattr(self, "vu_bar"):
+            level = self._state.EMA_rms
+            self.vu_bar.setOpts(height=[self._rms_to_norm(level)])
+            self.threshold_line.setPos(self._rms_to_norm(self._state.threshold))
 
-    # Callback per l'interfaccia utente
+##BUTTON CALLBACKS##
+  
     def _on_play_pause_clicked(self):
         logger.info("Pulsante Play/Pause premuto")
 
@@ -235,10 +281,32 @@ class MainWindow(QMainWindow):
         logger.info("Pulsante STOP premuto")
 
     def _on_mode_toggle_clicked(self):
+        self._state.is_live = not self._state.is_live
+        if self._state.is_live:
+            self.ToggleButton.setText("Live")
+            self.ToggleButton.setStyleSheet("background-color: green; color: white;")
+        else:
+            self.ToggleButton.setText("Playback")
+            self.ToggleButton.setStyleSheet("background-color: orange; color: black;")
+
+
         logger.info("Pulsante Live/Playback premuto")
 
     def _on_threshold_changed(self, value):
-        logger.debug(f"Soglia impostata a: {value}")
+        # Convert slider value to RMS threshold
+        self._state.threshold = value/140.0 + 0.005
+        logger.debug(f"Soglia impostata a: {self._state.threshold:.3f} (slider value: {value})")
+
+    def _rms_to_norm(self, rms_val, eps=1e-6):
+        """Converts a linear RMS value directly to a normalized [0, 1] scale in dB space."""
+        # 1. Convert linear RMS to dBFS
+        db_val = 20.0 * np.log10(max(rms_val, eps))
+        
+        # 2. Map dB value from [min_db, max_db] to [0.0, 1.0]
+        norm = (db_val - self.min_db) / (self.max_db - self.min_db)
+        
+        # 3. Clamp output between 0.0 and 1.0
+        return float(np.clip(norm, 0.0, 1.0))    
 
     def stop(self):
         logger.info("Arresto della GUI e chiusura sessione...")
