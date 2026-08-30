@@ -2,6 +2,14 @@
 <ui version="4.0">
  <class>MainWindow</class>
  <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>729</width>
+    <height>675</height>
+   </rect>
+  </property>
   <property name="minimumSize">
    <size>
     <width>460</width>
@@ -159,41 +167,19 @@
            </layout>
           </item>
           <item>
-           <widget class="QScrollArea" name="historyArea">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-              <horstretch>1</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
+           <widget class="QListWidget" name="listWidget"/>
+          </item>
+          <item>
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>RealBat 1.0</string>
             </property>
-            <property name="minimumSize">
-             <size>
-              <width>70</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>200</width>
-              <height>16777215</height>
-             </size>
-            </property>
-            <property name="autoFillBackground">
+            <property name="scaledContents">
              <bool>true</bool>
             </property>
-            <property name="widgetResizable">
-             <bool>true</bool>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
             </property>
-            <widget class="QWidget" name="scrollAreaWidgetContents">
-             <property name="geometry">
-              <rect>
-               <x>0</x>
-               <y>0</y>
-               <width>185</width>
-               <height>170</height>
-              </rect>
-             </property>
-            </widget>
            </widget>
           </item>
           <item>
@@ -343,8 +329,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>920</width>
-     <height>23</height>
+     <width>729</width>
+     <height>24</height>
     </rect>
    </property>
    <property name="sizePolicy">
