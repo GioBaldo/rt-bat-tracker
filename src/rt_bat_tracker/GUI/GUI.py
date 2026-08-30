@@ -97,7 +97,7 @@ class MainWindow(QMainWindow):
             self._update_vu_meter()
         else:
             try:
-                self.selected_event = self._session.events[self.selected_event_index]
+                self.selected_event = self._session.event_list[self.selected_event_index]
             except IndexError:
                 logger.info("Selected event index out of bounds for events list. [or no events available]")
                 time.sleep(1)
@@ -252,7 +252,7 @@ class MainWindow(QMainWindow):
         colors = np.asarray(colors, dtype=np.float32)
         self._source_plot.setData(pos=points, color=colors)
 
-        self.spec_image_data = selsf._session.get_spectrogram_for_playback(event, playback_time, self.spec_image_data.shape[1])
+        self.spec_image_data = selsf._session.get_spectrogram_for_playback(event, playback_time, self.spec_image_data.shape)
         self.spectrogram.setImage(self.spec_image_data)
 
 ##BUTTON CALLBACKS##
