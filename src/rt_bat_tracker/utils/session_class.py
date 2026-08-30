@@ -178,7 +178,7 @@ class Session:
             f"updated fft: actual size [{np.shape(self.active_event.spectrogram)} type {type(magnitude[1])} took {time.perf_counter_ns() - taim} nanosec]"
         )
 
-    def read_spectrogram_for_playback(self, event, playback_time, (bins, num_frames)):
+    def read_spectrogram_for_playback(self, event, playback_time, bins, num_frames):
         """
         Given the event and the time in seconds this fucntion returns the spectrogram of the event before the playback_time
         """
