@@ -37,7 +37,7 @@ from rt_bat_tracker.utils.paths import get_project_paths
 from rt_bat_tracker.utils.session_class import Session
 import rt_bat_tracker.audio.audio_input as audio_input
 import rt_bat_tracker.tracking.beta_processing as processing
-import rt_bat_tracker.GUI.gui_update as gui
+import rt_bat_tracker.GUI.GUI as gui
 import rt_bat_tracker.utils.measure as measure
 from rt_bat_tracker.utils.dataClass import SharedState
 from rt_bat_tracker.utils.json_formatter import JsonFormatter
@@ -96,7 +96,7 @@ def main():
     cfg.file = args.file
     cfg.device = args.device
     cfg.micLayout_path = str(os.path.join(projPaths.mic_layout_dir, cfg.default_layout))
-    cfg.GUIpath = str(os.path.join(projPaths.gui_dir, "GUI_Layout.ui"))
+    cfg.GUIpath = str(os.path.join(projPaths.gui_dir, "GUI_Layout_resize.ui"))
 
     logger.info("Modalità di acquisizione: %s", cfg.mode)
 

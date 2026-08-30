@@ -60,14 +60,15 @@ class AudioProcessor:
         returns: (channels,) float32
         """
         rms = np.sqrt(np.mean(block**2, axis=0))
-        max = np.max(rms)
+        max_v = np.max(rms)
+        self._state.EMA_rms = self._state.EMA_rms + 0.5 * (max_v - self._state.EMA_rms)
         self.blocks_received += 1
         self._state.avg_rms = (
-            self._state.avg_rms * (self.blocks_received - 1) + max
+            self._state.avg_rms * (self.blocks_received - 1) + max_v
         ) / self.blocks_received
-        if max > self._state.max_rms:
-            self._state.max_rms = max
-            self.max_rms_channel = np.where(rms == max)[0][0]
+        if max_v > self._state.max_rms:
+            self._state.max_rms = max_v
+            self.max_rms_channel = np.where(rms == max_v)[0][0]
         return rms
 
     def _check_thresholds(self, rms):
