@@ -59,12 +59,19 @@ class AlsaAudioSource:
         Block is red and data are pushed to the queue
         managed by te start function
         """
+        # read data to avoid overrun in playback mode
+        if self._state.is_live is not True:
+            if self.PCM.state() in (2,3):
+                size, block = self.PCM.read()
+            return False #returning false doesn't stop the process
+        # picm starting
         if self.PCM.state() == 2:
             size, block = self.PCM.read()
             self.timestamp = self.get_timestamp()
 
             self.chunknum += 1
-
+        
+        #pcm running
         elif self.PCM.state() == 3:
 
             size, block = self.PCM.read()

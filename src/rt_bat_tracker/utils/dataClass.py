@@ -15,7 +15,7 @@ class SharedState:
 
     def __init__(self, cfg):
         self.is_live = True
-        
+
         self.audio_queue = queue.Queue(maxsize=cfg.audio_queue_maxsize)
         self.result_queue = queue.Queue(maxsize=cfg.results_queue_maxsize)
 
@@ -45,9 +45,15 @@ class SharedState:
         self.fade_time = 1
         self.tail_color = np.array([1.0, 1.0, 0.0])
 
-        logger.info("trying to load micxyz from: %s", cfg.micLayout_path)
+        self.SAVE_RESULTS = cfg.SAVE_RESULTS
 
-        self.micxyz = np.loadtxt(cfg.micLayout_path, delimiter=",")
+        self.ROTATION_X = 80
+        self.ROTATION_Z = 20
+        self.H_DISPLACEMENT = 1
+
+        logger.info("trying to load micxyz from: %s", cfg.micLayout_path)
+        root_xyz = np.loadtxt(cfg.micLayout_path, delimiter=",")
+        self.micxyz = self.rotate_coords(root_xyz, self.ROTATION_X, self.ROTATION_Z, self.H_DISPLACEMENT)
 
         # stats
         self.empty_res_count = 0
@@ -133,3 +139,33 @@ class SharedState:
             items = list(self.event_wav_buffer)
             self.event_wav_buffer.clear()
         return items
+
+    def rotate_coords(self, root_xyz, rotation_x_deg, rotation_z_deg, h_displacement):
+        """
+        Rotates the microphone coordinates around the X and Z axes and translates them along the Z axis.
+        """
+        rad_x = np.radians(rotation_x_deg)
+        rad_z = np.radians(rotation_z_deg)
+
+        Rx = np.array([
+            [1,           0,            0],
+            [0, np.cos(rad_x), -np.sin(rad_x)],
+            [0, np.sin(rad_x),  np.cos(rad_x)]
+        ])
+
+        Rz = np.array([
+            [np.cos(rad_z), -np.sin(rad_z), 0],
+            [np.sin(rad_z),  np.cos(rad_z), 0],
+            [0,              0,             1]
+        ])
+
+        # Combine the rotation matrices
+        R_total = Rz @ Rx
+
+        #Matrix multiplication to rotate the coordinates
+        rotated_xyz = root_xyz @ R_total.T
+
+        # translation along the Z axis (height displacement)
+        rotated_xyz[:, 2] += h_displacement
+
+        return rotated_xyz

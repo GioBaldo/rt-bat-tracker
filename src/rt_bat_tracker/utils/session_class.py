@@ -87,10 +87,7 @@ class Session:
             for p in this_event.points:
                 age = (
                     time.monotonic() - p.rel_ts - this_event.start_time
-                )  # this should ensure a timewise consistent plot
-                # logger.debug(
-                #     f"age: {age} : [ {time.monotonic()} + {this_event.start_time_adc} - {p.rel_ts}]"
-                # )
+                ) 
                 if age > 0:
                     op = (
                         max(0, 1 - age / self._state.fade_time)
@@ -120,9 +117,8 @@ class Session:
         if self.active_event is not None:
             logger.info(f"killing event: {self.active_event.event_name}")
             self.active_event.terminate_event()
-            if self._cfg.SAVE_RESULTS:
-                self.wav_path.mkdir()
-                self.save_wav_file()
+            if self._state.SAVE_RESULTS:
+                self._save_results()
             self.active_event = None
         else:
             logger.info("No active events to be killed")
@@ -145,15 +141,6 @@ class Session:
             for i in range(np.shape(data)[0]):
                 self.active_event.audio_file.append(data[i])
 
-    def save_wav_file(self):
-
-        path = self.wav_path / f"{self.active_event.event_name}.wav"
-
-        logger.info(
-            f"saving audio file for {self.active_event.event_name} at {path} with shape {np.shape(self.active_event.audio_file)}"
-        )
-        sf.write(path, np.vstack(self.active_event.audio_file), self._cfg.fs)
-
     def update_spectrogram(self, data, ch):
         """
         perform fft on one channel and save the (samples, bins) np.array of np.float16 in the event spectrogram
@@ -171,25 +158,72 @@ class Session:
             frame = signal[start : start + NFFT]
             frame = frame * window
             spectrum = np.fft.rfft(frame)
-            magnitude = np.abs(spectrum).astype(np.float16)
+            magnitude = np.abs(spectrum*100.0).astype(np.float16)
             # magnitude_db = 20 * np.log10(magnitude, 1e-12)
             self.active_event.spectrogram.append(magnitude)
         logger.debug(
             f"updated fft: actual size [{np.shape(self.active_event.spectrogram)} type {type(magnitude[1])} took {time.perf_counter_ns() - taim} nanosec]"
         )
 
-    def read_spectrogram_for_playback(self, event, playback_time, bins, num_frames):
+    def read_points_for_playback(self, this_event, playback_time):
+        """
+        Given the event and the time in seconds this fucntion returns the points of the event before the playback_time
+        """
+        if (
+            this_event is not None
+        ):  # this may not work with passed events, need to be adapted
+            active_points = []
+            ap_colors = []
+            for p in this_event.points:
+                age = (playback_time - p.rel_ts) 
+                if age > 0:
+                    op = (
+                        max(0, 1 - age / self._state.fade_time)
+                        if self._state.fade
+                        else 1
+                    )
+                    p.color = np.append(self._state.tail_color, op)
+                    active_points.append(p.pos)
+                    ap_colors.append(p.color)
+            
+            return active_points, ap_colors
+        else:
+            return None, None, None
+
+    def read_spectrogram_for_playback(self, event, playback_time, shape):
         """
         Given the event and the time in seconds this fucntion returns the spectrogram of the event before the playback_time
         """
+        bins, num_frames = shape
         if event is not None:
             # Calculate the number of frames to include based on playback_time
             frame_idx = int(playback_time * self._cfg.fs / self._cfg.HOP_SIZE)
             frame_idx = min(frame_idx, len(event.spectrogram))
-            num_frames = min(num_frames, frame_idx)
-            array = np.zeros((num_frames, bins), dtype=np.uint8)
-            data = np.array(event.spectrogram[frame_idx - num_frames:frame_idx], dtype=np.uint8)
-            array[:data.shape[0], :data.shape[1]] = data
+            data_frames = min(num_frames, frame_idx)
+            array = np.zeros((bins, num_frames), dtype=np.uint8)
+            data = np.array(event.spectrogram[frame_idx - data_frames:frame_idx], dtype=np.uint8)
+            array[:, :data_frames] = data.T
             return array
         else:
             return np.array([])
+
+    def _save_results(self):
+        """
+        Saves the results of the session to a CSV file.
+        Each event is saved with its points and audio file.
+        """
+        self.wav_path.mkdir(exist_ok=True, parents=True)
+
+        path = self.wav_path / f"{self.active_event.event_name}.wav"
+
+        logger.info(
+            f"saving audio file for {self.active_event.event_name} at {path} with shape {np.shape(self.active_event.audio_file)}"
+        )
+        sf.write(path, np.vstack(self.active_event.audio_file), self._cfg.fs)
+
+        points_data = []
+        for idx, p in enumerate(self.active_event.points):
+            points_data.append([idx, p.pos[0], p.pos[1], p.pos[2], p.abs_ts, p.rel_ts])
+
+        points_path = self.wav_path / f"{self.active_event.event_name}_points.csv"
+        np.savetxt(points_path, points_data, delimiter=",", header="Index,X,Y,Z,Timestamp,Relative_Timestamp")

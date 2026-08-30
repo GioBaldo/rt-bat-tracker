@@ -19,14 +19,14 @@ def run(state, cfg, session):
     app = QApplication(sys.argv)
 
     window = MainWindow(state, cfg, session)
-    window.show()
+    window.showFullScreen()
 
     app.aboutToQuit.connect(window.stop)
 
     app.exec_()
     state.gui_running_flag = False
 
-
+##MAIN WINDOW CLASS##
 class MainWindow(QMainWindow):
 
     def __init__(self, state, cfg, session):
@@ -58,11 +58,12 @@ class MainWindow(QMainWindow):
         self.selected_event_index = 0
         self.playback_speed = 1
         self.playback_counter = 0
+        self.pause_counter = False
         # import widgets and connect signals
         self._import_ui_widgets()
         self._connect_ui_signals()
         self._live_layout()  # set initial layout to live mode
-
+        self.TextLabel.setText(f"{self._session.session_name}")
         # Inizializzazione dei visualizzatori
         try:
             self._setup_path_viewer(self._state.micxyz)
@@ -95,6 +96,7 @@ class MainWindow(QMainWindow):
             self._update_path_viewer()
             self._update_spec_viewer()
             self._update_vu_meter()
+            self._update_list_viewer()
         else:
             try:
                 self.selected_event = self._session.event_list[self.selected_event_index]
@@ -105,11 +107,12 @@ class MainWindow(QMainWindow):
                 self._live_layout()
                 return
             self.playback_time = 1/self._cfg.update_fps * self.playback_speed * self.playback_counter
-            if self.playback_time >= selected_event.duration: 
+            if self.playback_time >= self.selected_event.duration: 
                 self.playback_counter = 0  
                 self.playback_time = 0          
             self._show_selected_event(self.selected_event, self.playback_time)
-            self.playback_counter += 1
+            if not self.pause_counter:
+                self.playback_counter += 1
             
 ###VIEWERS FUNCTIONS##
 ###PATH VIEWER###
@@ -173,8 +176,13 @@ class MainWindow(QMainWindow):
         self.spectrogram.setImage(self.spec_image_data)
         self.spectrogram.setOpts(axisOrder="row-major")
 
-        axis = spec_viewer.getAxis("left")
-        axis.setTicks([[(0, "10k"), (64, "50k"), (128, "90k")]])
+        yaxis = spec_viewer.getAxis("left")
+        yaxis.setTicks([[(0, "10k"), (64, "50k"), (128, "90k")]])
+
+        xaxis = spec_viewer.getAxis("bottom")
+        unity = self._cfg.HOP_SIZE / self._cfg.fs
+        xaxis.setScale(unity)
+        #xaxis.setTicks([[(0, "0s"), (250, "2.5s"), (500, "5s")]])
 
     def _update_spec_viewer(self):
         if self._session.active_event is not None:
@@ -240,6 +248,14 @@ class MainWindow(QMainWindow):
             level = self._state.EMA_rms
             self.vu_bar.setOpts(height=[self._rms_to_norm(level)])
             self.threshold_line.setPos(self._rms_to_norm(self._state.threshold))
+###LIST VIEWER##
+    def _update_list_viewer(self):
+        if self._session.active_event is not None: 
+            item_count = self.ListViewer.count()
+            last_item = self.ListViewer.item(item_count - 1) if item_count > 0 else None
+            if last_item is None or last_item.text() != self._session.active_event.event_name:
+                self.ListViewer.addItem(self._session.active_event.event_name)
+                self.ListViewer.scrollToBottom()
 
 ###PLAYBACK FUNCTIONS##
     def _show_selected_event(self, event, playback_time):
@@ -247,12 +263,12 @@ class MainWindow(QMainWindow):
         Given the event and the time in seconds this fucntion shows all the points in the event before the playback_time
         and the spectrogram accordingly.
         """
-        points, colors = self._session.read_for_playback(event, playback_time)
+        points, colors = self._session.read_points_for_playback(event, playback_time)
         points = np.asarray(points, dtype=np.float32)
         colors = np.asarray(colors, dtype=np.float32)
         self._source_plot.setData(pos=points, color=colors)
 
-        self.spec_image_data = selsf._session.get_spectrogram_for_playback(event, playback_time, self.spec_image_data.shape)
+        self.spec_image_data = self._session.read_spectrogram_for_playback(event, playback_time, self.spec_image_data.shape)
         self.spectrogram.setImage(self.spec_image_data)
 
 ##BUTTON CALLBACKS##
@@ -290,6 +306,9 @@ class MainWindow(QMainWindow):
         self._connect_signal_safely(
             "ThresholdSlider", "valueChanged", self._on_threshold_changed
         )
+        self._connect_signal_safely(
+            "listWidget", "currentRowChanged", self._on_event_selected
+        )
 
     def _import_ui_widgets(self):
         """Importa i widget dalla UI e li assegna come attributi della classe."""
@@ -299,9 +318,41 @@ class MainWindow(QMainWindow):
         self.RightButton = getattr(self, "RightButton", None)
         self.ToggleButton = getattr(self, "pushButton_4", None)
         self.ThresholdSlider = getattr(self, "ThresholdSlider", None)
+        self.ListViewer = getattr(self, "listWidget", None)
+        self.TextLabel = getattr(self, "label", None)
+
+        self.ExitButton.setStyleSheet("background-color: red; color: white;")
+        self.ThresholdSlider.installEventFilter(self)  # Install event filter for mouse wheel events
+
+    def eventFilter(self, source, event):
+        """Handle mouse hover events (for ThresholdSlider)"""
+        if source == self.ThresholdSlider:
+            if event.type() == event.Enter or event.type() == event.MouseMove or event.type() == event.MouseButtonPress:
+                self.TextLabel.setText(f"Threshold: {self._state.threshold:.3f}")
+            elif event.type() == event.Leave:
+                self.TextLabel.setText(f"{self._session.session_name}")
+        return super().eventFilter(source, event)
+
+    def _on_event_selected(self, item_idx):
+        self.selected_event_index = item_idx
 
     def _on_play_pause_clicked(self):
-        logger.info("Pulsante Play/Pause premuto")
+        if self._state.is_live:
+            self._state.SAVE_RESULTS = not self._state.SAVE_RESULTS
+            if self._state.SAVE_RESULTS:
+                self.PlayButton.setText("Saving ON")
+                self.PlayButton.setStyleSheet("background-color: green; color: white;")
+            else:
+                self.PlayButton.setText("Saving OFF")
+                self.PlayButton.setStyleSheet("background-color: red; color: black;")
+        else:
+            self.pause_counter = not self.pause_counter
+            if self.pause_counter:
+                self.PlayButton.setText("Play")
+                self.PlayButton.setStyleSheet("background-color: yellow; color: black;")
+            else:
+                self.PlayButton.setText("Pause")
+                self.PlayButton.setStyleSheet("background-color: green; color: white;")
 
     def _on_slowmo_clicked(self):
         logger.info("Pulsante 0.5x premuto")
@@ -315,6 +366,7 @@ class MainWindow(QMainWindow):
             self._live_layout()
         else:
             self._playback_layout()
+            self._session.kill_event()  # Terminate event before changing mode
 
         logger.info("Pulsante Live/Playback premuto")
 
@@ -339,8 +391,11 @@ class MainWindow(QMainWindow):
         self.ToggleButton.setStyleSheet("background-color: green; color: white;")
         self.RightButton.setEnabled(False)
         self.LeftButton.setEnabled(False)
-        self.PlayButton.setEnabled(False)
+        self.PlayButton.setEnabled(True)
+        self.PlayButton.setText("Saving ON" if self._state.SAVE_RESULTS else "Saving OFF")
+        self.PlayButton.setStyleSheet("background-color: green; color: white;" if self._state.SAVE_RESULTS else "background-color: red; color: black;")
         self.ThresholdSlider.setEnabled(True)
+        self.ListViewer.setEnabled(False)
     
     def _playback_layout(self):
         self.ToggleButton.setText("Playback")
@@ -348,7 +403,11 @@ class MainWindow(QMainWindow):
         self.RightButton.setEnabled(True)
         self.LeftButton.setEnabled(True)
         self.PlayButton.setEnabled(True)
+        self.PlayButton.setText("Pause")
+        self.pause_counter = False
+        self.PlayButton.setStyleSheet("background-color: green; color: white;")
         self.ThresholdSlider.setEnabled(False)
+        self.ListViewer.setEnabled(True)
 
     def stop(self):
         logger.info("Arresto della GUI e chiusura sessione...")
