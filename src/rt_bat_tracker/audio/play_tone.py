@@ -96,15 +96,16 @@ class PlayTone:
                 return
 
             while not self.state.stop_event.isSet():
-                logger.info(
-                    f"BEEP interval: {interval}, num_chunks: {num_chunks}, duration: {np.around(num_chunks*self.chunk_time, 2)}ms"
-                )
-                # time.sleep(1)
-                for ch in self.channels:
-                    logger.debug(f"play ch {ch} .. interval {interval}")
-                    self.output(tone, ch, num_chunks, 1)
-                    print("sleeping interval")
-                    time.sleep(interval)
+                if self.state.is_live:
+                    logger.info(
+                        f"BEEP interval: {interval}, num_chunks: {num_chunks}, duration: {np.around(num_chunks*self.chunk_time, 2)}ms"
+                    )
+                    # time.sleep(1)
+                    for ch in self.channels:
+                        logger.debug(f"play ch {ch} .. interval {interval}")
+                        self.output(tone, ch, num_chunks, 1)
+                        print("sleeping interval")
+                        time.sleep(interval)
 
         except Exception as e:
             logger.error("beep thread crashed:", repr(e))
