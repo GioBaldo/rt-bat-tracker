@@ -37,7 +37,7 @@ class PlayTone:
             * self.blocksize
         )
         # tone = self.make_tone(frequency, samples)
-        tone = self.make_sweep(frequency, 2000, samples)
+        tone = self.make_sweep(frequency, 15000, samples)
         logger.info(self.PCM.info())
         logger.info(
             f"requested tone frequency: {frequency}Hz, duration: {duration}ms, rate: {rate} calls/sec: actual tone length: {len(tone)} = {len(tone)/self.blocksize} x {self.blocksize} "

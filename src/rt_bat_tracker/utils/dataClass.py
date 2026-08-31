@@ -51,6 +51,8 @@ class SharedState:
         self.ROTATION_Z = 20
         self.H_DISPLACEMENT = 1
 
+        self.normal_vector = self.rotate_coords(np.array([[0, 0, 1]]), self.ROTATION_X, self.ROTATION_Z, self.H_DISPLACEMENT) # use n.array([[]]) for a 2Darray in the function
+
         logger.info("trying to load micxyz from: %s", cfg.micLayout_path)
         root_xyz = np.loadtxt(cfg.micLayout_path, delimiter=",")
         self.micxyz = self.rotate_coords(root_xyz, self.ROTATION_X, self.ROTATION_Z, self.H_DISPLACEMENT)

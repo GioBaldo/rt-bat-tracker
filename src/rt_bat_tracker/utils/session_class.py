@@ -4,6 +4,8 @@ import logging
 import numpy as np
 import soundfile as sf
 from pathlib import Path
+import csv
+import json
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -18,16 +20,19 @@ class Session:
     The session will be saved as a csv file in order to be able to acces each event any moment also after shuting down the bat-tracker
     """
 
-    def __init__(self, cfg, state, projPaths, name=time.asctime()):
+    def __init__(self, cfg, state, projPaths, name=None):
         self._state = state
         self._cfg = cfg
         self.results_path = projPaths.results_dir
         self.event_list: list[Event] = []
         self.active_event = None
         self.session_name = name
+        if self.session_name is None:
+            self.session_name = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
+        else:
+            self.session_name = name
         self.start_time = time.monotonic()
-
-        self.wav_path = Path(self.results_path / self.session_name)
+        self.session_path = Path(self.results_path / self.session_name)
 
     def new_event(self, timestamp):
         event = Event(str(len(self.event_list) + 1), timestamp)
@@ -118,7 +123,7 @@ class Session:
             logger.info(f"killing event: {self.active_event.event_name}")
             self.active_event.terminate_event()
             if self._state.SAVE_RESULTS:
-                self._save_results()
+                self._save_event(self.active_event)
             self.active_event = None
         else:
             logger.info("No active events to be killed")
@@ -201,29 +206,148 @@ class Session:
             frame_idx = min(frame_idx, len(event.spectrogram))
             data_frames = min(num_frames, frame_idx)
             array = np.zeros((bins, num_frames), dtype=np.uint8)
+            logger.debug(f"Array shape: {array.shape}, spectrogram length: {len(event.spectrogram)}, {len(event.spectrogram[0])}")
             data = np.array(event.spectrogram[frame_idx - data_frames:frame_idx], dtype=np.uint8)
             array[:, :data_frames] = data.T
             return array
         else:
             return np.array([])
 
-    def _save_results(self):
+    def _save_event(self, target_event):
         """
-        Saves the results of the session to a CSV file.
-        Each event is saved with its points and audio file.
+        Save one event data to disk:
+        - WAV audio file
+        - points as CSV
+        - spectrogram as NPY
+        - event metadata in session manifest JSON
         """
-        self.wav_path.mkdir(exist_ok=True, parents=True)
+        self.session_path.mkdir(exist_ok=True, parents=True)
+        event_stem = target_event.event_name.replace(" ", "_")
+        self.event_path = self.session_path / event_stem
+        self.event_path.mkdir(exist_ok=True, parents=True)
 
-        path = self.wav_path / f"{self.active_event.event_name}.wav"
+        ## SAVING WAV FILE ##
+        wav_filename = f"{event_stem}.wav"
+        wav_path = self.event_path / wav_filename
 
         logger.info(
-            f"saving audio file for {self.active_event.event_name} at {path} with shape {np.shape(self.active_event.audio_file)}"
+            f"saving audio file for {target_event.event_name} at {wav_path} with shape {np.shape(target_event.audio_file)}"
         )
-        sf.write(path, np.vstack(self.active_event.audio_file), self._cfg.fs)
+        sf.write(wav_path, np.vstack(target_event.audio_file), self._cfg.fs)
 
-        points_data = []
-        for idx, p in enumerate(self.active_event.points):
-            points_data.append([idx, p.pos[0], p.pos[1], p.pos[2], p.abs_ts, p.rel_ts])
+        ## SAVING POINTS ##
+        points_filename = f"{event_stem}.points.csv"
+        points_path = self.event_path / points_filename
 
-        points_path = self.wav_path / f"{self.active_event.event_name}_points.csv"
-        np.savetxt(points_path, points_data, delimiter=",", header="Index,X,Y,Z,Timestamp,Relative_Timestamp")
+        with open(points_path, mode="w", newline="", encoding="utf-8") as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(["abs_ts", "rel_ts", "x", "y", "z"])
+            for p in target_event.points:
+                writer.writerow(
+                    [
+                        float(p.abs_ts),
+                        float(p.rel_ts),
+                        float(p.pos[0]),
+                        float(p.pos[1]),
+                        float(p.pos[2]),
+                    ]
+                )
+
+        ## SAVING SPECTROGRAM ##
+        spectrogram_filename = f"{event_stem}.spectrogram.npy"
+        spectrogram_path = self.event_path / spectrogram_filename
+        np.save(spectrogram_path, target_event.spectrogram)
+
+        ## SAVING METADATA ##
+        manifest_path = self.session_path / "session_manifest.json"
+        
+        #initialize manifest in case it doesnt exist yet
+        manifest = {
+            "session_name": self.session_name,
+            "events": []}
+
+        #if the manifest exist loads the existing one
+        if manifest_path.exists():
+            with open(manifest_path, mode="r", encoding="utf-8") as manifest_file:
+                manifest = json.load(manifest_file)
+            manifest["session_name"] = self.session_name
+
+        #creates the event record to be saved in the manifest
+        event_record = {
+            "event_name": target_event.event_name,
+            "event_folder": event_stem,
+            "start_time_adc": float(target_event.start_time_adc),
+            "duration": (
+                float(target_event.duration) if target_event.duration is not None else None
+            ),
+            "points_file": points_filename,
+            "spectrogram_file": spectrogram_filename,
+            "audio_file": wav_filename,
+            "points_count": len(target_event.points),
+            "spectrogram_frames": len(target_event.spectrogram),
+        }
+
+        #updates the manifest by removing any existing (shouldn't exixt) record for the same event name and appending the new record
+        manifest["events"] = [
+            e for e in manifest.get("events", []) if e.get("event_name") != target_event.event_name
+        ]
+        manifest["events"].append(event_record)
+
+        with open(manifest_path, mode="w", encoding="utf-8") as manifest_file:
+            json.dump(manifest, manifest_file, indent=2)    
+
+    def get_recall_session_list(self):
+        """
+        Returns a list of all sessions available in the results directory.
+        Each session is represented by its name (directory name).
+        """
+        sessions = []
+        for session_dir in self.results_path.iterdir():
+            if session_dir.is_dir():
+                sessions.append(session_dir.name)
+        return sessions
+        
+    def get_recall_event_list(self, session_name):
+        """
+        Load events from disk and return a list of Event objects.
+        """
+        event_list = []
+        session_path = self.results_path / session_name
+        manifest_path = session_path / "session_manifest.json"
+        if not manifest_path.exists():
+            logger.warning(f"No manifest found at {manifest_path}. No events loaded.")
+            return event_list
+
+        with open(manifest_path, mode="r", encoding="utf-8") as manifest_file:
+            manifest = json.load(manifest_file)
+        
+        for event_index, event_data in enumerate(manifest.get("events", [])):
+            event_name = event_data["event_name"]
+            event_folder = event_data["event_folder"]
+            start_time_adc = float(event_data["start_time_adc"])
+            event = Event(event_index, start_time_adc)
+            event.event_name = event_name
+            event.duration = event_data.get("duration")
+            event.last_call_time = time.monotonic()
+
+            #load points and add to event
+            points_path = session_path / event_folder / event_data["points_file"]
+            with open(points_path, mode="r", newline="", encoding="utf-8") as csv_file:
+                reader = csv.DictReader(csv_file)
+                for row in reader:
+                    pos = np.array(
+                        [float(row["x"]), float(row["y"]), float(row["z"])],
+                        dtype=np.float32,
+                    )
+                    abs_ts = float(row["abs_ts"])
+                    event.add_point(pos, abs_ts)
+                    event.points[-1].rel_ts = float(row["rel_ts"])
+
+            #load spectrogram        
+            spectrogram_path = session_path / event_folder / event_data["spectrogram_file"]
+            if spectrogram_path.exists():
+                event.spectrogram = np.load(spectrogram_path).tolist()
+            event_list.append(event)
+            logger.info(f"Loaded event: {event_name} with {len(event.points)} points and {len(event.spectrogram)} spectrogram frames.")
+
+        return event_list
