@@ -114,17 +114,18 @@ class AudioProcessor:
             chunk[:, self.significant_channels], self.cfg.fs
         )
 
-        path_diff = time_delays * self.cfg.vsound
+        path_diff = time_delays * self.cfg.vsound # Localization compudet on Range Difference! [meters]
         locations = tristar_mellen_pachter(
-            self._state.micxyz[self.significant_channels], path_diff
+            self._state.micxyz[self.significant_channels], path_diff, self._state.normal_vector
         )
         logger.info(
             f"about to push results, max rms = {self._state.max_rms} - locations: {locations} - dtype: {type(chunk[0][0])}"
         )
-        if len(locations) == 0 & len(time_delays) != 0:
+        if locations is None and len(time_delays) != 0:
             logger.error("ERROR! TRYING TO COMPUTE TDOA WITH THE WRONG MIC LAYOUT")
 
-        self._state.put_result(locations, time)
+        if locations is not None:
+            self._state.put_result(locations, time)
 
         return True
 

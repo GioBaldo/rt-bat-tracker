@@ -26,24 +26,43 @@ import numpy as np
 import scipy.spatial as spatial
 
 
-def tristar_mellen_pachter(*args):
-    """Wrapper around mellen_pachter_raquet_2003
-    which only outputs positive y axis sources.
-    """
-    sources = mellen_pachter_raquet_2003(*args)
-    print("sources:", sources)
-    infront_of_array = []
-    if sources.size > 3:
-        for each in sources:
-            x, y, z = each
-            if x >= 0:
-                infront_of_array.append(each)
-    elif sources.size == 3:
-        x, y, z = sources
+# def tristar_mellen_pachter(mic_array, di, normal_vector):
+#     """Wrapper around mellen_pachter_raquet_2003
+#     which only outputs positive y axis sources.
+#     """
+#     sources = mellen_pachter_raquet_2003(mic_array, di)
+#     print("sources:", sources)
+#     infront_of_array = []
+#     if sources.size > 3:
+#         for each in sources:
+#             d = np.array(each) - mic_array[0, :]
+#             d_dot_n = np.dot(d, normal_vector)
+#             if d_dot_n >= 0:
+#                 infront_of_array.append(each)
+#     elif sources.size == 3:
+#         x, y, z = sources
 
-        if z >= 0:
-            infront_of_array.append(sources)
-    return infront_of_array
+#         if z >= 0:
+#             infront_of_array.append(sources)
+#     return infront_of_array
+
+def tristar_mellen_pachter(mic_array, di, normal_vector):
+    """Wrapper around mellen_pachter_raquet_2003
+    which only outputs positive y/z axis sources.
+    """
+    sources = np.atleast_2d(mellen_pachter_raquet_2003(mic_array, di))
+
+    if sources.size == 0 or sources.shape[1] != 3:
+        return []
+
+    n = np.squeeze(normal_vector)
+
+    dot_products = (sources - mic_array[0]) @ n
+    valid_mask = (dot_products >= 0) & (sources[:, 2] >= 0)
+
+    valid_sources = sources[valid_mask]
+
+    return list(valid_sources)
 
 
 def mellen_pachter_raquet_2003(mic_array, di):

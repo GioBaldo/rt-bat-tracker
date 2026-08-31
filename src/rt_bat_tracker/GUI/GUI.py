@@ -19,7 +19,8 @@ def run(state, cfg, session):
     app = QApplication(sys.argv)
 
     window = MainWindow(state, cfg, session)
-    window.showFullScreen()
+    #window.showFullScreen()
+    window.show()
 
     app.aboutToQuit.connect(window.stop)
 
@@ -64,6 +65,11 @@ class MainWindow(QMainWindow):
         self._connect_ui_signals()
         self._live_layout()  # set initial layout to live mode
         self.TextLabel.setText(f"{self._session.session_name}")
+        self.recall_mode = False
+        self.list_display = "events"  # or "sessions"
+        self.recall_session_path = None
+        self.recall_session_list = None
+        self.recall_event_list = None
         # Inizializzazione dei visualizzatori
         try:
             self._setup_path_viewer(self._state.micxyz)
@@ -92,20 +98,32 @@ class MainWindow(QMainWindow):
             )
             self._state.gui_running_flag = True
         if self._state.is_live:
+            ##PIPELINE IN LIVE MODE##
             self._session.write_audiofile()
             self._update_path_viewer()
             self._update_spec_viewer()
             self._update_vu_meter()
             self._update_list_viewer()
         else:
-            try:
-                self.selected_event = self._session.event_list[self.selected_event_index]
-            except IndexError:
-                logger.info("Selected event index out of bounds for events list. [or no events available]")
-                time.sleep(1)
-                self._state.is_live = True
-                self._live_layout()
-                return
+            ###PIPELINE IN PLAYBACK MODE##
+            self._update_list_viewer()
+            if self.recall_mode is True and self.recall_event_list is not None:
+                try:
+                    self.selected_event = self.recall_event_list[self.selected_event_index]
+                except IndexError:
+                    logger.info("Selected event index out of bounds for recall event list. [or no events available]")
+                    time.sleep(1)
+                    self.recall_mode = False
+                    return
+            else:
+                try:
+                    self.selected_event = self._session.event_list[self.selected_event_index]
+                except IndexError:
+                    logger.info("Selected event index out of bounds for events list. [or no events available]")
+                    time.sleep(1)
+                    self._state.is_live = True
+                    self._live_layout()
+                    return
             self.playback_time = 1/self._cfg.update_fps * self.playback_speed * self.playback_counter
             if self.playback_time >= self.selected_event.duration: 
                 self.playback_counter = 0  
@@ -234,6 +252,7 @@ class MainWindow(QMainWindow):
         
         # Convert linear threshold directly to normalized [0, 1] GUI position
         norm_thresh = self._rms_to_norm(self._state.threshold)
+        norm_avg = self._rms_to_norm(self._state.avg_rms)
         
         # Create the threshold line
         self.threshold_line = pg.InfiniteLine(
@@ -243,19 +262,43 @@ class MainWindow(QMainWindow):
         )
         vu_meter.addItem(self.threshold_line)
 
+        # Create the average line
+        self.avg_line = pg.InfiniteLine(
+            angle=0, 
+            pos=norm_avg, 
+            pen=pg.mkPen("y", width=2)
+        )
+        vu_meter.addItem(self.avg_line)
+
     def _update_vu_meter(self):
         if hasattr(self, "vu_bar"):
             level = self._state.EMA_rms
             self.vu_bar.setOpts(height=[self._rms_to_norm(level)])
             self.threshold_line.setPos(self._rms_to_norm(self._state.threshold))
+            self.avg_line.setPos(self._rms_to_norm(self._state.avg_rms))
+
 ###LIST VIEWER##
     def _update_list_viewer(self):
-        if self._session.active_event is not None: 
-            item_count = self.ListViewer.count()
-            last_item = self.ListViewer.item(item_count - 1) if item_count > 0 else None
-            if last_item is None or last_item.text() != self._session.active_event.event_name:
-                self.ListViewer.addItem(self._session.active_event.event_name)
-                self.ListViewer.scrollToBottom()
+        if self.recall_mode is False:
+            self.ListViewer.clear()
+            for event in self._session.event_list:
+                self.ListViewer.addItem(event.event_name)
+            self.ListViewer.setCurrentRow(self.selected_event_index)
+            self.ListViewer.scrollToBottom()
+
+        else:
+            if self.list_display == "sessions":
+                self.ListViewer.clear()
+                self.recall_session_list = self._session.get_recall_session_list()
+                logger.info(f"Retrieved recall session list: {len(self.recall_session_list)}")
+                for session in self.recall_session_list:
+                    self.ListViewer.addItem(session)
+            elif self.list_display == "events":
+                self.ListViewer.clear()
+                for event in self.recall_event_list:
+                    self.ListViewer.addItem(event.event_name)
+            self.ListViewer.setCurrentRow(self.selected_event_index)
+            self.ListViewer.scrollToBottom()
 
 ###PLAYBACK FUNCTIONS##
     def _show_selected_event(self, event, playback_time):
@@ -298,7 +341,7 @@ class MainWindow(QMainWindow):
             "LeftButton", "clicked", self._on_slowmo_clicked
         )
         self._connect_signal_safely(
-            "RightButton", "clicked", self._on_stop_clicked
+            "RightButton", "clicked", self._toggle_recall_mode
         )
         self._connect_signal_safely(
             "pushButton_4", "clicked", self._on_mode_toggle_clicked
@@ -334,7 +377,13 @@ class MainWindow(QMainWindow):
         return super().eventFilter(source, event)
 
     def _on_event_selected(self, item_idx):
-        self.selected_event_index = item_idx
+        if self.list_display == "events":
+            self.selected_event_index = item_idx
+        elif self.list_display == "sessions":
+            self.recall_session_name = self.recall_session_list[item_idx]
+            self.selected_event_index = 0
+            self.recall_event_list = self._session.get_recall_event_list(self.recall_session_name)
+            self.list_display = "events"
 
     def _on_play_pause_clicked(self):
         if self._state.is_live:
@@ -357,8 +406,20 @@ class MainWindow(QMainWindow):
     def _on_slowmo_clicked(self):
         logger.info("Pulsante 0.5x premuto")
 
-    def _on_stop_clicked(self):
-        logger.info("Pulsante STOP premuto")
+    def _toggle_recall_mode(self):
+        logger.info("Pulsante HISTORY premuto")
+        if self._state.is_live:
+            pass
+        else:
+            self.recall_mode = not self.recall_mode
+            if self.recall_mode:
+                self.list_display = "sessions"
+                self.RightButton.setStyleSheet("background-color: blue; color: white;")
+            else:
+                self.list_display = "events"
+                self.RightButton.setStyleSheet("background-color: white; color: black;")
+
+        logger.info(f"Recall mode: {self.recall_mode}, list display: {self.list_display}")
 
     def _on_mode_toggle_clicked(self):
         self._state.is_live = not self._state.is_live
