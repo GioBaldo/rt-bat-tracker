@@ -8,7 +8,7 @@ import csv
 import json
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 
 class Session:
@@ -207,7 +207,8 @@ class Session:
             data_frames = min(num_frames, frame_idx)
             array = np.zeros((bins, num_frames), dtype=np.uint8)
             logger.debug(f"Array shape: {array.shape}, spectrogram length: {len(event.spectrogram)}, {len(event.spectrogram[0])}")
-            data = np.array(event.spectrogram[frame_idx - data_frames:frame_idx], dtype=np.uint8)
+            raw_data = np.array(event.spectrogram[frame_idx - data_frames:frame_idx], dtype=np.float16)
+            data = np.clip(raw_data, 0, 255).astype(np.uint8)
             array[:, :data_frames] = data.T
             return array
         else:
