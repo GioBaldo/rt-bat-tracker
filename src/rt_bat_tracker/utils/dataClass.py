@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 import logging
 import math
 import numpy as np
+from scipy import signal
 from collections import deque
 
 logger = logging.getLogger(__name__)
@@ -15,10 +16,11 @@ class SharedState:
 
     def __init__(self, cfg):
         self.is_live = True
+        self.mute_detector = True
 
         self.audio_queue = queue.Queue(maxsize=cfg.audio_queue_maxsize)
         self.result_queue = queue.Queue(maxsize=cfg.results_queue_maxsize)
-
+        self.detector_queue = queue.Queue(maxsize=5) #usually only one chunk is passed to play_tone and is suddently palyed
         self.threshold = cfg.threshold
 
         self.event_wav_buffer = deque(maxlen=cfg.event_wav_buffer_maxsize)
@@ -46,12 +48,13 @@ class SharedState:
         self.tail_color = np.array([1.0, 1.0, 0.0])
 
         self.SAVE_RESULTS = cfg.SAVE_RESULTS
+        self.suggested_threshold = 0
 
         self.ROTATION_X = 80
-        self.ROTATION_Z = 20
+        self.ROTATION_Z = -10
         self.H_DISPLACEMENT = 1
 
-        self.normal_vector = self.rotate_coords(np.array([[0, 0, 1]]), self.ROTATION_X, self.ROTATION_Z, self.H_DISPLACEMENT) # use n.array([[]]) for a 2Darray in the function
+        self.normal_vector = self.rotate_coords(np.array([[0, 0, 1]]), self.ROTATION_X, self.ROTATION_Z, 0) # use n.array([[]]) for a 2Darray in the function
 
         logger.info("trying to load micxyz from: %s", cfg.micLayout_path)
         root_xyz = np.loadtxt(cfg.micLayout_path, delimiter=",")
@@ -120,6 +123,7 @@ class SharedState:
             logger.debug("Empty results queue, timeout after %.1f s", timeout)
             return None, None
 
+    # Wav buffer functions
     def write_wav_buffer(self, block):
         """
         called from processing, writes blocks in a deque buffer.
@@ -142,6 +146,34 @@ class SharedState:
             self.event_wav_buffer.clear()
         return items
 
+    # Detector queue functions
+    def put_raw_for_detector(self, data):
+        if self.stop_event.is_set():
+            return
+        if not self.is_live:
+            return
+        if self.mute_detector:
+            return
+        try:
+            logger.warning(f"putting data in detector queue, length: {len(data)}")
+            self.detector_queue.put_nowait(data)
+        except queue.Full:
+            logger.warning("Full detector queue, dropped data")
+
+    def get_resampled_detector_data(self):
+        """ Collects data from the detector queue, and upsamples by a factor o 4 so that the tone_layer palys the chunk downpitched by 4. Returns None if the queue is empty or if stop_event is set. """
+
+        if self.stop_event.is_set():
+            return None
+        try:
+            data = self.detector_queue.get(block=False)
+            resampled_data = signal.resample(data, up = 4)
+            logger.warning(f"returning resampled detector data length: {len(resampled_data)}")
+            return resampled_data
+        except queue.Empty:
+            logger.debug("Empty detector queue, returning None")
+            return None
+            
     def rotate_coords(self, root_xyz, rotation_x_deg, rotation_z_deg, h_displacement):
         """
         Rotates the microphone coordinates around the X and Z axes and translates them along the Z axis.
@@ -162,7 +194,7 @@ class SharedState:
         ])
 
         # Combine the rotation matrices
-        R_total = Rz @ Rx
+        R_total = Rx @ Rz
 
         #Matrix multiplication to rotate the coordinates
         rotated_xyz = root_xyz @ R_total.T

@@ -18,6 +18,7 @@ class PlayTone:
         self.cfg = cfg
         self.state = state
         self.channels = [0]
+        self.DETECTOR_CHANNEL = 0
         self.blocksize = 4096
         self.chunk_time = np.around(self.blocksize * 1000 / self.cfg.fs, 2)
         self.PCM = alsa.PCM(
@@ -134,3 +135,19 @@ class PlayTone:
             logger.debug(
                 f"write on ch {ch} chunk {chunk} .. time {time.monotonic()} frame: {frame[100:106]}"
             )
+
+    def detector(self):
+        """Reads form state.detector_queue data pusched by the processing thread and (if available) prints them to the console."""
+        while not self.state.stop_event.isSet():
+            if self.state.is_live:
+                try:
+                    data = self.state.get_resampled_detector_data()
+                    if data is None:
+                        continue
+                    num_chunks = len(data) // self.blocksize
+                    self.output(data, self.DETECTOR_CHANNEL, num_chunks, 1)
+                    logger.warning(f"detector data length: {len(data)}, num_chunks: {num_chunks}")
+                except Exception as e:
+                    logger.error("detector thread crashed:", repr(e))
+                
+                    
