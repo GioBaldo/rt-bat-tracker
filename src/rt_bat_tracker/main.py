@@ -41,7 +41,7 @@ import rt_bat_tracker.GUI.GUI as gui
 import rt_bat_tracker.utils.measure as measure
 from rt_bat_tracker.utils.dataClass import SharedState
 from rt_bat_tracker.utils.json_formatter import JsonFormatter
-
+from rt_bat_tracker.audio.play_tone import PlayTone
 
 from PyQt5.QtWidgets import QApplication
 
@@ -135,10 +135,15 @@ def main():
     proc_thread.start()
     logger.info("Thread Processing avviato  (tid=%d)", proc_thread.ident)
 
-    if args.beep:
-        from rt_bat_tracker.audio.play_tone import PlayTone
+    tone_player = PlayTone(state, cfg)
 
-        tone_player = PlayTone(state, cfg)
+    detector_thread = threading.Thread(
+        target=tone_player.detector,
+        name="Detector",
+        daemon=True,
+    )
+
+    if args.beep:  
         playback_thread = threading.Thread(
             target=tone_player.play,
             args=(args.beep[0], args.beep[1] * 1000, args.beep[2]),
@@ -146,6 +151,9 @@ def main():
             daemon=True,
         )
         playback_thread.start()
+    else:
+        #detector_thread.start()
+        pass
 
     # --- GUI nel main thread (requisito Qt) ---
     # QApplication deve essere creata nel main thread.
