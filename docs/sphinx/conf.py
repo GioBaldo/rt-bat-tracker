@@ -1,36 +1,27 @@
-# Configuration file for the Sphinx documentation builder.
-#
-# For the full list of built-in configuration values, see the documentation:
-# https://www.sphinx-doc.org/en/master/usage/configuration.html
+import os
+import sys
 
-# -- Project information -----------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
+sys.path.insert(0, os.path.abspath("../../src"))
 
 project = "RealBat"
 copyright = "2026, Giovanni Baldini"
 author = "Giovanni Baldini"
 release = "1.0.0"
 
-# -- General configuration ---------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
+extensions = [
+    "sphinx.ext.autodoc",
+]
 
-extensions = []
+toc_object_entries = False
+
+autodoc_mock_imports = [
+    "keyboard",
+    "pyroomacoustics",
+    "natsort",
+]
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
-
-# -- Options for HTML output -------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
-
 html_theme = "alabaster"
 html_static_path = ["_static"]
-
-import os
-import sys
-
-sys.path.insert(0, os.path.abspath("../../src/rt_bat_tracker"))
-
-extensions = [
-    "sphinx.ext.autodoc",
-]
