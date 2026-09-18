@@ -358,9 +358,9 @@ class MainWindow(QMainWindow):
                 self.ListViewer.clear()
                 logger.debug(f"Index of selected event: {self.selected_event_index}")
                 for event in self.recall_event_list:
-                    self.ListViewer.addItem(event.event_name)
+                    self.ListViewer.addItem(f"{event.event_name} ({event.duration:.2f}s) [{len(event.points)} p]")
                 self.ListViewer.setCurrentRow(self.selected_event_index)
-            self.ListViewer.scrollToBottom()
+            # self.ListViewer.scrollToBottom()
         self.ListViewer.blockSignals(False) 
 
 ##PLAYBACK FUNCTIONS##

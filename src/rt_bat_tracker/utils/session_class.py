@@ -152,7 +152,7 @@ class Session:
         """
         taim = time.perf_counter_ns()
         data = np.array(data)
-        signal = data[:, :, ch].reshape(-1)
+        signal = data[:, :, 4].reshape(-1) #substitute with ch
         NFFT = self._cfg.WINDOW_SIZE
         HOP = self._cfg.HOP_SIZE
         window = np.hanning(NFFT)
@@ -306,7 +306,7 @@ class Session:
         for session_dir in self.results_path.iterdir():
             if session_dir.is_dir():
                 sessions.append(session_dir.name)
-        return sessions
+        return sorted(sessions)
         
     def get_recall_event_list(self, session_name):
         """
