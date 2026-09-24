@@ -50,8 +50,8 @@ class SharedState:
         self.SAVE_RESULTS = cfg.SAVE_RESULTS
         self.suggested_threshold = 0
 
-        self.ROTATION_X = 80
-        self.ROTATION_Z = -10
+        self.ROTATION_X = 90
+        self.ROTATION_Z = 0
         self.H_DISPLACEMENT = 1
 
         self.normal_vector = self.rotate_coords(np.array([[0, 0, 1]]), self.ROTATION_X, self.ROTATION_Z, 0) # use n.array([[]]) for a 2Darray in the function

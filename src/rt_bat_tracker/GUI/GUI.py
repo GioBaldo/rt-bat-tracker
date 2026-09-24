@@ -493,7 +493,6 @@ class MainWindow(QMainWindow):
         else:
             self.LeftButton.setStyleSheet("background-color: white; color: black;")
 
-
     def _right_button_callback(self):
         logger.info("Pulsante HISTORY premuto")
         if self._state.is_live:

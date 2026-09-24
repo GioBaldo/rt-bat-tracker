@@ -91,6 +91,10 @@ def main():
         print(devices)
         return
 
+    if args.save:
+        cfg.SAVE_RESULTS = True
+        logger.info("SAVE_RESULTS set to True")
+
     # pass arg inputs to the cfg dictionary
     cfg.mode = args.mode
     cfg.file = args.file
@@ -102,7 +106,7 @@ def main():
 
     # initialize util classes
     state = SharedState(cfg)
-    session = Session(cfg, state, projPaths)
+    session = Session(cfg, state, projPaths, args.name)
 
     # --- Signal handler per SIGINT (Ctrl-C) e SIGTERM ---
     def _handle_signal(signum, frame):

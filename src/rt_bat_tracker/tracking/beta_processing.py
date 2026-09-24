@@ -184,12 +184,15 @@ class AudioProcessor:
             block = self._highpass_filter(block)
             # here data are implicitly converted from np.float32 to np.float64
 
-            # put HP block in the event audio queue for later saving
+            # put HP block in the event audio queue for later saving (all channels)
             self._state.write_wav_buffer(block)
+
+            # remove unused channels
+            block = block[:, :self._state.micxyz.shape[0]]
 
             rms, max_channel = self._compute_rms(block)
             logger.debug(
-                f"channel rms: {np.max(rms)} on channel {np.where(rms == np.max(rms))[0][0]} "
+                f"channel rms: {np.max(rms)} on channel {max_channel} "
             )
 
             # compares rms values with thresholds to identify active channels
@@ -231,17 +234,12 @@ class AudioProcessor:
                         )
                         continue
 
-                    # elif timestamp - self._state.call_time > self.cfg.MIN_CALL_DURATION:
-                    #     logger.info(
-                    #         "Call ended at %.2f s — total duration: %.4f s - samples stored %i -  pushing results to queue",
-                    #         timestamp,
-                    #         timestamp - self._state.call_time,
-                    #         self._state.call_chunk.shape[0],
-                    #     )
+ 
                 logger.debug(
                     f"call ended: active channels: {self.significant_channels}, call duration: {timestamp - self._state.call_time:.4f} s, samples stored: {self._state.call_chunk.shape[0]}"
                 )
-                #self._state.put_raw_for_detector(self._state.call_chunk[:,max_channel])
+
+                print(f"significant channels: {self.significant_channels}")
                 if self.significant_channels.size > 3:
                     self.process()
 
