@@ -20,13 +20,14 @@ def run(state, cfg, session):
 
     window = MainWindow(state, cfg, session)
     window.showFullScreen()
+    #window.show()
 
     app.aboutToQuit.connect(window.stop)
 
     app.exec_()
     state.gui_running_flag = False
 
-##MAIN WINDOW CLASS##
+#MAIN WINDOW CLASS##
 class MainWindow(QMainWindow):
 
     def __init__(self, state, cfg, session):
@@ -55,16 +56,26 @@ class MainWindow(QMainWindow):
         self._cfg = cfg
         self.timer = int(1000 / self._cfg.update_fps)
         self.setWindowTitle(self._session.session_name)
+        
+        ##PLAYBACK VARIABLES##
         self.selected_event_index = 0
         self.playback_speed = 1
         self.playback_counter = 0
         self.pause_counter = False
-        # import widgets and connect signals
+        self.recall_mode = False
+        self.list_display = "events"  # or "sessions"
+        self.recall_session_path = None
+        self.recall_session_list = None
+        self.recall_session_index = None
+        self.recall_event_list = None
+        self.DEFAULT_LABEL_TEXT = f"Current Session: {self._session.session_name}"
+        
+        ##import widgets and connect signals
         self._import_ui_widgets()
         self._connect_ui_signals()
         self._live_layout()  # set initial layout to live mode
-        self.TextLabel.setText(f"{self._session.session_name}")
-        # Inizializzazione dei visualizzatori
+
+        ##Inizializzazione dei visualizzatori
         try:
             self._setup_path_viewer(self._state.micxyz)
             self._setup_spec_viewer()
@@ -91,6 +102,8 @@ class MainWindow(QMainWindow):
                 time.time() - self._state.gui_t_start,
             )
             self._state.gui_running_flag = True
+        ##MANAGE GUI UPDATE BASED ON MODE##
+        ##PIPELINE IN LIVE MODE##
         if self._state.is_live:
             self._session.write_audiofile()
             self._update_path_viewer()
@@ -98,24 +111,42 @@ class MainWindow(QMainWindow):
             self._update_vu_meter()
             self._update_list_viewer()
         else:
-            try:
-                self.selected_event = self._session.event_list[self.selected_event_index]
-            except IndexError:
-                logger.info("Selected event index out of bounds for events list. [or no events available]")
-                time.sleep(1)
-                self._state.is_live = True
-                self._live_layout()
-                return
-            self.playback_time = 1/self._cfg.update_fps * self.playback_speed * self.playback_counter
-            if self.playback_time >= self.selected_event.duration: 
-                self.playback_counter = 0  
-                self.playback_time = 0          
-            self._show_selected_event(self.selected_event, self.playback_time)
-            if not self.pause_counter:
-                self.playback_counter += 1
+            ###PIPELINE IN PLAYBACK MODE##
+            self._update_list_viewer()
+            ###RECALL MODE###
+            if self.recall_mode is True:
+                if self.recall_event_list is not None:
+                    logger.debug(f"RECALL-MODE: selected event name {self.recall_event_list[self.selected_event_index].event_name}")
+                    try:
+                        self.selected_event = self.recall_event_list[self.selected_event_index]
+                    except IndexError:
+                        logger.info("Selected event index out of bounds for recall event list. [or no events available]")
+                        time.sleep(0.3)
+                        self.recall_mode = False
+                        return
+            ###CURRENT SESSION PLAYBACK##
+            else:
+                try:
+                    self.selected_event = self._session.event_list[self.selected_event_index]
+                except IndexError:
+                    logger.info("Selected event index out of bounds for events list. [or no events available]")
+                    time.sleep(0.3)
+                    self.selected_event = None
+                    self.ListViewer.clear()
+                    self.ListViewer.addItem("No events available for playback.")
+                    self.ListViewer.scrollToBottom()
             
-###VIEWERS FUNCTIONS##
-###PATH VIEWER###
+            if self.selected_event is not None:            
+                self.playback_time = 1/self._cfg.update_fps * self.playback_speed * self.playback_counter
+                if self.playback_time >= self.selected_event.duration: 
+                    self.playback_counter = 0  
+                    self.playback_time = 0          
+                self._show_selected_event(self.selected_event, self.playback_time)
+                if not self.pause_counter:
+                    self.playback_counter += 1
+            
+##VIEWERS FUNCTIONS##
+##PATH VIEWER###
     def _setup_path_viewer(self, micxyz):
         path_viewer = getattr(self, "pathViewer", None)
         if path_viewer is None:
@@ -123,9 +154,25 @@ class MainWindow(QMainWindow):
             return
 
         grid = gl.GLGridItem()
-        grid.setSize(20, 20)
-        grid.setSpacing(0.5, 0.5)
+        grid.setSize(20, 20, 10)
+        grid.setSpacing(1, 1, 1)
+        #grid.translate(10, 10, 0)
         path_viewer.addItem(grid)
+
+        backplane = gl.GLGridItem()
+        backplane.setSize(20, 20)
+        backplane.setSpacing(1, 1)
+        #rotation = np.cross(self._state.normal_vector, np.array([0, 0, 1]))
+        backplane.rotate(self._state.ROTATION_X,1,0,0) #rotation around x-axis
+        backplane.translate(0, 0, self._state.H_DISPLACEMENT) #displacement along z-axis
+        #backplane.setColor((0.5, 0.1, 0.5, 0.8))  # Set color with alpha for transparency
+        path_viewer.addItem(backplane)
+
+        p_start = self._state.micxyz[0]
+        p_end = p_start + self._state.normal_vector  # Extend the
+        pts = np.vstack((p_start, p_end))
+        line = gl.GLLinePlotItem(pos=pts, color=(0.7, 0.1, 1, 0.6), width=2, antialias=True)
+        path_viewer.addItem(line)
 
         self._mic_plot = gl.GLScatterPlotItem(
             pos=micxyz,
@@ -141,7 +188,9 @@ class MainWindow(QMainWindow):
         )
         path_viewer.addItem(self._source_plot)
 
-        path_viewer.setCameraPosition(distance=20, azimuth=-50, elevation=30)
+        path_viewer.opts["center"] = pg.Vector(0, -5, 3)
+
+        path_viewer.setCameraPosition(distance=20, azimuth=120, elevation=0.5)
 
     def _update_path_viewer(self):
         pos, timestamp = self._state.get_result()
@@ -158,20 +207,24 @@ class MainWindow(QMainWindow):
         
         self._source_plot.setData(pos=points, color=colors)
 
-###SPECTROGRAM VIEWER##
+##SPECTROGRAM VIEWER##
     def _setup_spec_viewer(self):
         spec_viewer = getattr(self, "specViewer", None)
         if spec_viewer is None:
             logger.warning("Widget 'specViewer' non trovato nella UI.")
             return
 
+        spec_viewer.setMouseEnabled(x=False, y=False)
+
         spec_image_height = 129
         spec_image_width = 500
+
         self.spec_image_data = np.zeros(
             (spec_image_height, spec_image_width), dtype=np.uint8
         )
 
         self.spectrogram = pg.ImageItem()
+        self.spectrogram.setLookupTable(pg.colormap.get("viridis").getLookupTable())
         spec_viewer.addItem(self.spectrogram)
         self.spectrogram.setImage(self.spec_image_data)
         self.spectrogram.setOpts(axisOrder="row-major")
@@ -182,7 +235,6 @@ class MainWindow(QMainWindow):
         xaxis = spec_viewer.getAxis("bottom")
         unity = self._cfg.HOP_SIZE / self._cfg.fs
         xaxis.setScale(unity)
-        #xaxis.setTicks([[(0, "0s"), (250, "2.5s"), (500, "5s")]])
 
     def _update_spec_viewer(self):
         if self._session.active_event is not None:
@@ -200,7 +252,7 @@ class MainWindow(QMainWindow):
 
                 self.spectrogram.setImage(self.spec_image_data)
 
-###VU METER VIEWER##
+##VU METER VIEWER##
     def _setup_vu_meter(self):
         vu_meter = getattr(self, "VUMeter", None)
         
@@ -234,35 +286,90 @@ class MainWindow(QMainWindow):
         
         # Convert linear threshold directly to normalized [0, 1] GUI position
         norm_thresh = self._rms_to_norm(self._state.threshold)
+        norm_avg = self._rms_to_norm(self._state.avg_rms)
+        norm_max = self._rms_to_norm(self._state.max_rms)
         
         # Create the threshold line
         self.threshold_line = pg.InfiniteLine(
             angle=0, 
             pos=norm_thresh, 
-            pen=pg.mkPen("r", width=2)
+            pen=pg.mkPen("g", width=2)
         )
         vu_meter.addItem(self.threshold_line)
+
+        # Create the average line
+        self.avg_line = pg.InfiniteLine(
+            angle=0, 
+            pos=norm_avg, 
+            pen=pg.mkPen("y", width=2)
+        )
+        vu_meter.addItem(self.avg_line)
+
+        # Create the maximum line
+        self.max_line = pg.InfiniteLine(
+            angle=0, 
+            pos=norm_max, 
+            pen=pg.mkPen("b", width=2)
+        )
+        vu_meter.addItem(self.max_line)
+
+        #create the suggested threshold line
+        self.suggested_threshold_line = pg.InfiniteLine(
+            angle=0, 
+            pos=self._rms_to_norm(0.02), 
+            pen=pg.mkPen("cyan", width=2, style=Qt.DashLine)
+        )
+        vu_meter.addItem(self.suggested_threshold_line)
 
     def _update_vu_meter(self):
         if hasattr(self, "vu_bar"):
             level = self._state.EMA_rms
+            self.suggested_threshold = (self._state.max_rms + self._state.avg_rms)/2
             self.vu_bar.setOpts(height=[self._rms_to_norm(level)])
             self.threshold_line.setPos(self._rms_to_norm(self._state.threshold))
-###LIST VIEWER##
-    def _update_list_viewer(self):
-        if self._session.active_event is not None: 
-            item_count = self.ListViewer.count()
-            last_item = self.ListViewer.item(item_count - 1) if item_count > 0 else None
-            if last_item is None or last_item.text() != self._session.active_event.event_name:
-                self.ListViewer.addItem(self._session.active_event.event_name)
-                self.ListViewer.scrollToBottom()
+            self.avg_line.setPos(self._rms_to_norm(self._state.avg_rms))
+            self.max_line.setPos(self._rms_to_norm(self._state.max_rms))
+            self.suggested_threshold_line.setPos(self._rms_to_norm(self.suggested_threshold))
 
-###PLAYBACK FUNCTIONS##
+##LIST VIEWER##
+    def _update_list_viewer(self):
+        """
+        Updates the list viewer with the current session's events or recall sessions.
+        """
+        self.ListViewer.blockSignals(True)  # Block signals to prevent triggering _on_event_selected
+        if self.recall_mode is False:
+            self.ListViewer.clear()
+            for event in self._session.event_list:
+                self.ListViewer.addItem(event.event_name)
+            self.ListViewer.setCurrentRow(self.selected_event_index)
+            self.ListViewer.scrollToBottom()
+
+        else:
+            if self.list_display == "sessions":
+                self.ListViewer.clear()
+                self.recall_session_list = self._session.get_recall_session_list()
+                logger.info(f"Retrieved recall session list: {len(self.recall_session_list)}")
+                for session in self.recall_session_list:
+                    self.ListViewer.addItem(session)
+                if self.recall_session_index is not None:
+                    self.ListViewer.setCurrentRow(self.recall_session_index)
+                
+            elif self.list_display == "events":
+                self.ListViewer.clear()
+                logger.debug(f"Index of selected event: {self.selected_event_index}")
+                for event in self.recall_event_list:
+                    self.ListViewer.addItem(f"{event.event_name} ({event.duration:.2f}s) [{len(event.points)} p]")
+                self.ListViewer.setCurrentRow(self.selected_event_index)
+            # self.ListViewer.scrollToBottom()
+        self.ListViewer.blockSignals(False) 
+
+##PLAYBACK FUNCTIONS##
     def _show_selected_event(self, event, playback_time):
         """
         Given the event and the time in seconds this fucntion shows all the points in the event before the playback_time
         and the spectrogram accordingly.
         """
+        logger.info(f"Showing event: {event.event_name} at playback time: {playback_time:.2f}s")
         points, colors = self._session.read_points_for_playback(event, playback_time)
         points = np.asarray(points, dtype=np.float32)
         colors = np.asarray(colors, dtype=np.float32)
@@ -271,7 +378,7 @@ class MainWindow(QMainWindow):
         self.spec_image_data = self._session.read_spectrogram_for_playback(event, playback_time, self.spec_image_data.shape)
         self.spectrogram.setImage(self.spec_image_data)
 
-##BUTTON CALLBACKS##
+#BUTTON CALLBACKS##
     def _connect_signal_safely(self, widget_name, signal_name, slot):
         """Metodo helper per connettere segnali evitando crash se il widget non esiste."""
         widget = getattr(self, widget_name, None)
@@ -292,22 +399,22 @@ class MainWindow(QMainWindow):
         """Collega i segnali usando il wrapper sicuro."""
         self._connect_signal_safely("ExitButton", "clicked", self.stop)
         self._connect_signal_safely(
-            "PlayButton", "clicked", self._on_play_pause_clicked
+            "PlayButton", "clicked", self._play_button_callback
         )
         self._connect_signal_safely(
-            "LeftButton", "clicked", self._on_slowmo_clicked
+            "LeftButton", "clicked", self._left_button_callback
         )
         self._connect_signal_safely(
-            "RightButton", "clicked", self._on_stop_clicked
+            "RightButton", "clicked", self._right_button_callback
         )
         self._connect_signal_safely(
-            "pushButton_4", "clicked", self._on_mode_toggle_clicked
+            "pushButton_4", "clicked", self._mode_button_callback
         )
         self._connect_signal_safely(
-            "ThresholdSlider", "valueChanged", self._on_threshold_changed
+            "ThresholdSlider", "valueChanged", self._on_slider_changed
         )
         self._connect_signal_safely(
-            "listWidget", "currentRowChanged", self._on_event_selected
+            "listWidget", "currentRowChanged", self._select_item_callback
         )
 
     def _import_ui_widgets(self):
@@ -333,10 +440,30 @@ class MainWindow(QMainWindow):
                 self.TextLabel.setText(f"{self._session.session_name}")
         return super().eventFilter(source, event)
 
-    def _on_event_selected(self, item_idx):
-        self.selected_event_index = item_idx
+    def _select_item_callback(self, item_idx):
+        """Callback for when an event or session is selected in the list viewer:
+        - If list showing events, update selected_event_index.
+        - If list showing sessions, update recall_session_name and recall_session_index, then switch to showing events for that session.
+        """
+        if item_idx < 0:
+            return  # Ignore invalid index
+        if self.list_display == "events":
+            self.selected_event_index = item_idx
+            logger.debug(f"EVENT SELECTED!!!!! index: {self.selected_event_index}")
+            return
+        elif self.list_display == "sessions":
+            self.recall_session_name = self.recall_session_list[item_idx]
+            self.recall_session_index = item_idx
+            self.selected_event_index = 0
+            self.TextLabel.setText(f"HISTORY: {self.recall_session_name}")
+            logger.debug(f"Selected recall session: {self.recall_session_name} [item_idx = {item_idx}]")
+            self.recall_event_list = self._session.get_recall_event_list(self.recall_session_name)
+            logger.debug(f"Retrieved {len(self.recall_event_list)} Events")
+            self.list_display = "events"
 
-    def _on_play_pause_clicked(self):
+    def _play_button_callback(self):
+
+        ##LIVE MODE: toggle saving results ON/OFF##
         if self._state.is_live:
             self._state.SAVE_RESULTS = not self._state.SAVE_RESULTS
             if self._state.SAVE_RESULTS:
@@ -345,6 +472,9 @@ class MainWindow(QMainWindow):
             else:
                 self.PlayButton.setText("Saving OFF")
                 self.PlayButton.setStyleSheet("background-color: red; color: black;")
+            return
+        
+        ##PLAYBACK MODE: toggle pause/play##
         else:
             self.pause_counter = not self.pause_counter
             if self.pause_counter:
@@ -354,23 +484,47 @@ class MainWindow(QMainWindow):
                 self.PlayButton.setText("Pause")
                 self.PlayButton.setStyleSheet("background-color: green; color: white;")
 
-    def _on_slowmo_clicked(self):
-        logger.info("Pulsante 0.5x premuto")
+    def _left_button_callback(self):
+        logger.info("Pulsante MUTE premuto")
+        self._state.mute_detector = not self._state.mute_detector
+        if self._state.mute_detector:
+            self.LeftButton.setStyleSheet("background-color: red; color: white;")
 
-    def _on_stop_clicked(self):
-        logger.info("Pulsante STOP premuto")
+        else:
+            self.LeftButton.setStyleSheet("background-color: white; color: black;")
 
-    def _on_mode_toggle_clicked(self):
+    def _right_button_callback(self):
+        logger.info("Pulsante HISTORY premuto")
+        if self._state.is_live:
+            return
+        else:
+            self.recall_mode = not self.recall_mode
+            if self.recall_mode:
+                self.list_display = "sessions"
+                self.RightButton.setStyleSheet("background-color: blue; color: white;")
+                self.TextLabel.setText("..Recall old Sessions..")
+            else:
+                self._state.is_live = False
+                self.TextLabel.setText(f"..Current Session Playback..")
+                self.list_display = "events"
+                self.RightButton.setStyleSheet("background-color: white; color: black;")
+            self.recall_session_index = None
+            self.recall_session_name = None
+            self.recall_event_list = None
+
+        logger.info(f"Recall mode: {self.recall_mode}, list display: {self.list_display}")
+
+    def _mode_button_callback(self):
         self._state.is_live = not self._state.is_live
         if self._state.is_live:
             self._live_layout()
         else:
             self._playback_layout()
             self._session.kill_event()  # Terminate event before changing mode
-
+        
         logger.info("Pulsante Live/Playback premuto")
 
-    def _on_threshold_changed(self, value):
+    def _on_slider_changed(self, value):
         # Convert slider value to RMS threshold
         self._state.threshold = value/140.0 + 0.005
         logger.debug(f"Soglia impostata a: {self._state.threshold:.3f} (slider value: {value})")
@@ -386,29 +540,68 @@ class MainWindow(QMainWindow):
         # 3. Clamp output between 0.0 and 1.0
         return float(np.clip(norm, 0.0, 1.0))    
 
+##LAYOUT FUNCTIONS##
     def _live_layout(self):
-        self.ToggleButton.setText("Live")
-        self.ToggleButton.setStyleSheet("background-color: green; color: white;")
+        """Sets the GUI default layout for Live Mode including state variables"""
+
+        ##ACTIVE WIDGETS##
+        self.ToggleButton.setEnabled(True)
         self.RightButton.setEnabled(False)
-        self.LeftButton.setEnabled(False)
         self.PlayButton.setEnabled(True)
-        self.PlayButton.setText("Saving ON" if self._state.SAVE_RESULTS else "Saving OFF")
-        self.PlayButton.setStyleSheet("background-color: green; color: white;" if self._state.SAVE_RESULTS else "background-color: red; color: black;")
+        self.LeftButton.setEnabled(False)
         self.ThresholdSlider.setEnabled(True)
         self.ListViewer.setEnabled(False)
+
+        ##LAYOUT STYLING##
+        self.ToggleButton.setText("LIVE")
+        self.ToggleButton.setStyleSheet("background-color: green; color: white;")
+        self.PlayButton.setText("Saving ON" if self._state.SAVE_RESULTS else "Saving OFF")
+        self.PlayButton.setStyleSheet("background-color: green; color: white;" if self._state.SAVE_RESULTS else "background-color: red; color: black;")
+        self.LeftButton.setStyleSheet("background-color: red; color: white;" if self._state.mute_detector else "background-color: white; color: black;")
+        self.LeftButton.setText("M")
+        self.RightButton.setStyleSheet("background-color: white; color: black;")
+        self.RightButton.setText("...")
+        self.TextLabel.setText(f"{self.DEFAULT_LABEL_TEXT}")
+        self.ThresholdSlider.setValue(int((self._state.threshold - 0.005) * 140))  # Set slider to current threshold
+
+        ##VARIABLES##
+        self.recall_mode = False
+        self.recall_session_index = None
+        self.recall_session_name = None
+        self.recall_event_list = None
+        self.list_display = "events"
+        self.selected_event_index = self.ListViewer.count() - 1 if self.ListViewer.count() > 0 else 0
     
     def _playback_layout(self):
-        self.ToggleButton.setText("Playback")
-        self.ToggleButton.setStyleSheet("background-color: orange; color: black;")
+        """Sets the GUI default layout for Playback Mode, including state variables"""
+
+        ##ACTIVE WIDGETS##
+        self.ToggleButton.setEnabled(True)
         self.RightButton.setEnabled(True)
         self.LeftButton.setEnabled(True)
-        self.PlayButton.setEnabled(True)
-        self.PlayButton.setText("Pause")
-        self.pause_counter = False
-        self.PlayButton.setStyleSheet("background-color: green; color: white;")
+        self.PlayButton.setEnabled(True)  
         self.ThresholdSlider.setEnabled(False)
         self.ListViewer.setEnabled(True)
 
+        ##LAYOUT STYLING##
+        self.ToggleButton.setText("PLAYBACK")
+        self.ToggleButton.setStyleSheet("background-color: orange; color: black;")
+        self.PlayButton.setText("PAUSE")
+        self.PlayButton.setStyleSheet("background-color: green; color: white;")
+        self.RightButton.setText("...")
+        self.RightButton.setStyleSheet("background-color: white; color: black;")
+        self.TextLabel.setText(f"{self.DEFAULT_LABEL_TEXT}")
+
+        ##VARIABLES##
+        self.pause_counter = False  
+        self.recall_mode = False
+        self.recall_session_index = None
+        self.recall_session_name = None
+        self.recall_event_list = None
+        self.list_display = "events"
+        self.selected_event_index = 0
+
+##STOP FUNCTION##
     def stop(self):
         logger.info("Arresto della GUI e chiusura sessione...")
         self._session.kill_event()

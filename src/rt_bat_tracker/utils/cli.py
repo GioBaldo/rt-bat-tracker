@@ -8,6 +8,7 @@ def parse_args(
     audioFiles_dir,
     default_file="single_bat_1234.wav",
     default_device=None,
+    default_session_name=None,
     default_mode="audiofile",
     argv=None,
 ):
@@ -39,10 +40,20 @@ def parse_args(
     )
 
     parser.add_argument(
+        "--name",
+        default=default_session_name,
+        help="Name for the current session",
+    )
+
+    parser.add_argument(
         "--file",
         default=default_file,
         choices=wav_names,
         help="Select file to use in audiofile mode",
+    )
+
+    parser.add_argument(
+        "--save", action="store_true", help="Save results to disk"
     )
 
     parser.add_argument(

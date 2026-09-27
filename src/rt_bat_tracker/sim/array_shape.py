@@ -466,7 +466,7 @@ for id in selected_arrays:
 
             noisy_localization = np.array(
                 mpr.tristar_mellen_pachter(
-                    mic_array, noisy_RDs, f"{int(src["src_id"])}.{_}"
+                    mic_array, noisy_RDs, f"{int(src['src_id'])}.{_}"
                 ),
                 dtype=float,
             ).reshape(-1)

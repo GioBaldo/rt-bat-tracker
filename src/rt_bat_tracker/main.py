@@ -41,7 +41,7 @@ import rt_bat_tracker.GUI.GUI as gui
 import rt_bat_tracker.utils.measure as measure
 from rt_bat_tracker.utils.dataClass import SharedState
 from rt_bat_tracker.utils.json_formatter import JsonFormatter
-
+from rt_bat_tracker.audio.play_tone import PlayTone
 
 from PyQt5.QtWidgets import QApplication
 
@@ -91,6 +91,10 @@ def main():
         print(devices)
         return
 
+    if args.save:
+        cfg.SAVE_RESULTS = True
+        logger.info("SAVE_RESULTS set to True")
+
     # pass arg inputs to the cfg dictionary
     cfg.mode = args.mode
     cfg.file = args.file
@@ -102,7 +106,7 @@ def main():
 
     # initialize util classes
     state = SharedState(cfg)
-    session = Session(cfg, state, projPaths)
+    session = Session(cfg, state, projPaths, args.name)
 
     # --- Signal handler per SIGINT (Ctrl-C) e SIGTERM ---
     def _handle_signal(signum, frame):
@@ -135,10 +139,15 @@ def main():
     proc_thread.start()
     logger.info("Thread Processing avviato  (tid=%d)", proc_thread.ident)
 
-    if args.beep:
-        from rt_bat_tracker.audio.play_tone import PlayTone
+    tone_player = PlayTone(state, cfg)
 
-        tone_player = PlayTone(state, cfg)
+    detector_thread = threading.Thread(
+        target=tone_player.detector,
+        name="Detector",
+        daemon=True,
+    )
+
+    if args.beep:  
         playback_thread = threading.Thread(
             target=tone_player.play,
             args=(args.beep[0], args.beep[1] * 1000, args.beep[2]),
@@ -146,6 +155,9 @@ def main():
             daemon=True,
         )
         playback_thread.start()
+    else:
+        #detector_thread.start()
+        pass
 
     # --- GUI nel main thread (requisito Qt) ---
     # QApplication deve essere creata nel main thread.

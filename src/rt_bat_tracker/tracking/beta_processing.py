@@ -32,6 +32,28 @@ logger.setLevel(logging.INFO)
 # Processor class
 # ---------------------------------------------------------------------------
 
+##THREAD ENTRY POINT##
+
+def run(state, cfg):
+    """
+    Processing thread entry point — called once by the thread, never loops.
+    Instantiates AudioProcessor and runs its loop until shutdown.
+    """
+    while not state.gui_running_flag:
+        time.sleep(0.1)
+        if state.stop_event.isSet():
+            logger.info("processing loop never started - exiting processing thread")
+            return
+    processor = AudioProcessor(state, cfg)
+    processor.run_loop()
+    logger.info(
+        "processing.run: exit . STATS[max_rms: %.4f, avg_rms: %.4f, blocks_received: %d]",
+        state.max_rms,
+        state.avg_rms,
+        processor.blocks_received,
+    )
+    return
+
 
 class AudioProcessor:
     """
@@ -69,7 +91,7 @@ class AudioProcessor:
         if max_v > self._state.max_rms:
             self._state.max_rms = max_v
             self.max_rms_channel = np.where(rms == max_v)[0][0]
-        return rms
+        return rms, max_v
 
     def _check_thresholds(self, rms):
         """
@@ -77,13 +99,6 @@ class AudioProcessor:
         returns: (channels,) bool
         """
         return rms > self._state.threshold
-
-    def _compute_peak(self, block):
-        """
-        Peak absolute amplitude per channel.
-        returns: (channels,) float32
-        """
-        return np.max(np.abs(block), axis=0)
 
     def _highpass_filter(self, block):
         """
@@ -114,23 +129,22 @@ class AudioProcessor:
             chunk[:, self.significant_channels], self.cfg.fs
         )
 
-        path_diff = time_delays * self.cfg.vsound
+        path_diff = time_delays * self.cfg.vsound # Localization compudet on Range Difference! [meters]
         locations = tristar_mellen_pachter(
-            self._state.micxyz[self.significant_channels], path_diff
+            self._state.micxyz[self.significant_channels], path_diff, self._state.normal_vector
         )
         logger.info(
             f"about to push results, max rms = {self._state.max_rms} - locations: {locations} - dtype: {type(chunk[0][0])}"
         )
-        if len(locations) == 0 & len(time_delays) != 0:
+        if locations is None and len(time_delays) != 0:
             logger.error("ERROR! TRYING TO COMPUTE TDOA WITH THE WRONG MIC LAYOUT")
 
-        self._state.put_result(locations, time)
+        if locations is not None:
+            self._state.put_result(locations, time)
 
         return True
 
-    # ------------------------------------------------------------------
-    # Processing loop
-    # ------------------------------------------------------------------
+    ##PROCESSING LOOP##
 
     def run_loop(self):
         """
@@ -170,12 +184,15 @@ class AudioProcessor:
             block = self._highpass_filter(block)
             # here data are implicitly converted from np.float32 to np.float64
 
-            # put HP block in the event audio queue for later saving
+            # put HP block in the event audio queue for later saving (all channels)
             self._state.write_wav_buffer(block)
 
-            rms = self._compute_rms(block)
+            # remove unused channels
+            block = block[:, :self._state.micxyz.shape[0]]
+
+            rms, max_channel = self._compute_rms(block)
             logger.debug(
-                f"channel rms: {np.max(rms)} on channel {np.where(rms == np.max(rms))[0][0]} "
+                f"channel rms: {np.max(rms)} on channel {max_channel} "
             )
 
             # compares rms values with thresholds to identify active channels
@@ -217,16 +234,12 @@ class AudioProcessor:
                         )
                         continue
 
-                    # elif timestamp - self._state.call_time > self.cfg.MIN_CALL_DURATION:
-                    #     logger.info(
-                    #         "Call ended at %.2f s — total duration: %.4f s - samples stored %i -  pushing results to queue",
-                    #         timestamp,
-                    #         timestamp - self._state.call_time,
-                    #         self._state.call_chunk.shape[0],
-                    #     )
+ 
                 logger.debug(
                     f"call ended: active channels: {self.significant_channels}, call duration: {timestamp - self._state.call_time:.4f} s, samples stored: {self._state.call_chunk.shape[0]}"
                 )
+
+                print(f"significant channels: {self.significant_channels}")
                 if self.significant_channels.size > 3:
                     self.process()
 
@@ -236,28 +249,3 @@ class AudioProcessor:
         logger.info("AudioProcessor loop stopped")
         return
 
-
-# ---------------------------------------------------------------------------
-# Thread entry point
-# ---------------------------------------------------------------------------
-
-
-def run(state, cfg):
-    """
-    Processing thread entry point — called once by the thread, never loops.
-    Instantiates AudioProcessor and runs its loop until shutdown.
-    """
-    while not state.gui_running_flag:
-        time.sleep(0.1)
-        if state.stop_event.isSet():
-            logger.info("processing loop never started - exiting processing thread")
-            return
-    processor = AudioProcessor(state, cfg)
-    processor.run_loop()
-    logger.info(
-        "processing.run: exit . STATS[max_rms: %.4f, avg_rms: %.4f, blocks_received: %d]",
-        state.max_rms,
-        state.avg_rms,
-        processor.blocks_received,
-    )
-    return

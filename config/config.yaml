@@ -1,13 +1,13 @@
-mode: "audiofile" # "audiofile", "alsa", "portAudio"
+mode: "audiofile" # "alsa", "portAudio" , "audiofile"
 SAVE_RESULTS: False
 
 blocksize: 1024
 fs: 192000
 channels: 10
 dtype: "float32"
-default_file: "single_bat_1234.wav"
-default_layout: "triang.csv" # "single_bat_1234.csv"
-default_device: 1 # 10 WOOOW CABLE Output  (VB-Audio V, MME (16 in, 0 out)
+default_file: "Event_141.wav"
+default_layout: "triang_metal.csv" # "single_bat_1234.csv"
+default_device: 1 
 
 # Tunable parameters
 MIN_CALL_DURATION: 0.012 # minimum call duration in seconds, set the minimum size of the call chunk to process
@@ -20,7 +20,7 @@ threshold: 0.03
 
 # Butterworth highpass filter parameters
 filter_order: 1
-cutoff_freq: 1000
+cutoff_freq: 20000
 
 # Queue parameters - adjust if some chunks are being dropped
 audio_queue_maxsize: 40
@@ -32,7 +32,7 @@ event_max_sleep_time: 1 # max inactive time before quitting an event
 max_event_time: 10 # max duration of an event
 
 # GUI parameters
-update_fps: 25
+update_fps: 10
 buffer_length: 10
 
 # FFT prameters

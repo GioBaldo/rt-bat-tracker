@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>API Reference &#8212; RealBat 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=8d563738"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="RealBat Documentation" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="api-reference">
+<h1>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading">¶</a></h1>
+<section id="main">
+<h2>Main<a class="headerlink" href="#main" title="Link to this heading">¶</a></h2>
+<section id="module-rt_bat_tracker.main">
+<span id="main-py"></span><h3>main.py<a class="headerlink" href="#module-rt_bat_tracker.main" title="Link to this heading">¶</a></h3>
+<p>main.py
+Orchestrazione dell’applicazione.
+Il main NON contiene logica audio, processing o GUI.
+Si occupa solo di:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>creare le code condivise</p></li>
+<li><p>avviare i thread</p></li>
+<li><p>gestire SIGINT / SIGTERM per uno shutdown pulito</p></li>
+<li><p>attendere la terminazione ordinata</p></li>
+</ul>
+</div></blockquote>
+<p>NOTA: la GUI (Qt) gira nel main thread perché Qt lo richiede su molte
+piattaforme (in particolare su RPi4 con eglfs/xcb).
+I thread audio e processing sono daemon thread — vengono terminati
+automaticamente se il processo principale muore.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="rt_bat_tracker.main.main">
+<span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.main.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.main.main" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</section>
+</section>
+</section>
+<section id="audio">
+<h1>Audio<a class="headerlink" href="#audio" title="Link to this heading">¶</a></h1>
+<section id="module-rt_bat_tracker.audio.alsa_source">
+<span id="alsa-source-py"></span><h2>alsa_source.py<a class="headerlink" href="#module-rt_bat_tracker.audio.alsa_source" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.alsa_source.AlsaAudioSource">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.audio.alsa_source.</span></span><span class="sig-name descname"><span class="pre">AlsaAudioSource</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'hw:Gen,0'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">192000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blocksize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1024</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.alsa_source.AlsaAudioSource" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Captures live audio from a hardware device via Alsa driver through a focusrite Scarlett 18i20.
+Uses PyAlsaAudio library by &#64;lassimmisch for bindings between alsa and python.</p>
+<dl class="simple">
+<dt>PCM object needs to be configured with some values:</dt><dd><p>PCM(type: int = PCM_PLAYBACK, mode: int = PCM_NORMAL, rate: int = 192000, channels: int = 10,
+format: int = PCM_FORMAT_S32_LE, periodsize: int = 1024, periods: int = 1,
+device: str = ‘default’, cardindex: int = -1) -&gt; PCM</p>
+</dd>
+</dl>
+<p>some of them can be changed by the user and are given as inputs for this class, others are hard-coded in order
+to have the device properly working within the linux-alsa-focusrite fixed environment</p>
+<dl class="simple">
+<dt>inputs:</dt><dd><ul class="simple">
+<li><p>queue</p></li>
+<li><p>device</p></li>
+<li><p>fs (rate)</p></li>
+<li><p>channels</p></li>
+<li><p>blocksize (periodsize)</p></li>
+</ul>
+</dd>
+</dl>
+<p>this audiosource can just be started with start() and stopped with stop(). blocks are continuously pushed to the shared queue audio_queue as an np.array of shape (blocksize, channels) as &lt;np.float32&gt; samples</p>
+<p>the hardcoded values are
+type: alsa.PCM_CAPTURE [1], the PCM is in CAPTURE mode for RECORDING (PLAYBACK otherwise)
+mode: alsa.PCM_NORMAL [0], the PCM is in NORMAL mode then BLOCKS the caller until a frame is full, nice to avoid empty reads (NONBLOCK otherwise)
+format: int = PCM_FORMAT_S32_LE actually the only sample format that works
+periods: int = 1, if more than one then a larger number of blocks are passed each time
+cardindex: int = -1 NON USED</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.alsa_source.AlsaAudioSource.compute_max">
+<span class="sig-name descname"><span class="pre">compute_max</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.alsa_source.AlsaAudioSource.compute_max" title="Link to this definition">¶</a></dt>
+<dd><p>Used for visualization of the input signal for debugging, not used in the main processing chain.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.alsa_source.AlsaAudioSource.counter_time">
+<span class="sig-name descname"><span class="pre">counter_time</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.alsa_source.AlsaAudioSource.counter_time" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the elapsed time in nanoseconds since the timestamp bias was set, based on the system’s performance counter.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.alsa_source.AlsaAudioSource.get_timestamp">
+<span class="sig-name descname"><span class="pre">get_timestamp</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.alsa_source.AlsaAudioSource.get_timestamp" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the timestamp of the current block in nanoseconds, based on the selected PCM timestamp type.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.alsa_source.AlsaAudioSource.loop">
+<span class="sig-name descname"><span class="pre">loop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.alsa_source.AlsaAudioSource.loop" title="Link to this definition">¶</a></dt>
+<dd><p>Block is red and data are pushed to the queue
+managed by te start function</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.alsa_source.AlsaAudioSource.start">
+<span class="sig-name descname"><span class="pre">start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.alsa_source.AlsaAudioSource.start" title="Link to this definition">¶</a></dt>
+<dd><p>called by the audio_input.run() selector, this funcion initializes the PCM object to stream
+audio from the Focusrite Scarlett 18i20 to the Raspberry Pi4 (raspian) through alsa.
+After the PCM is correctly initialized the loop() is activated for reading data</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.alsa_source.AlsaAudioSource.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.alsa_source.AlsaAudioSource.stop" title="Link to this definition">¶</a></dt>
+<dd><p>Closes the alsa stream and releases resources.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.alsa_source.AlsaAudioSource.timestamp_init">
+<span class="sig-name descname"><span class="pre">timestamp_init</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.alsa_source.AlsaAudioSource.timestamp_init" title="Link to this definition">¶</a></dt>
+<dd><p>Initializes the timestamping mechanism based on the selected PCM timestamp type. Sets the timestamp bias and timer bias for accurate timing of audio blocks.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.alsa_source.AlsaAudioSource.to_nparray">
+<span class="sig-name descname"><span class="pre">to_nparray</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.alsa_source.AlsaAudioSource.to_nparray" title="Link to this definition">¶</a></dt>
+<dd><p>Converts the raw block of bytes read from the alsa PCM into a numpy array of shape (blocksize, channels) with float32 samples normalized to [-1, 1].</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-rt_bat_tracker.audio.audiofile_source">
+<span id="audiofile-source-py"></span><h2>audiofile_source.py<a class="headerlink" href="#module-rt_bat_tracker.audio.audiofile_source" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.audiofile_source.AudioFileSource">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.audio.audiofile_source.</span></span><span class="sig-name descname"><span class="pre">AudioFileSource</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loaded_durn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.audiofile_source.AudioFileSource" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Reads audio from a file and feeds it into the shared queue
+at the correct real-time pace, simulating a live hardware source.</p>
+<p>Timing is based on the file’s sample rate: each block is delivered
+at the exact wall-clock interval it would arrive from a real ADC.
+A drift-correction mechanism keeps timing accurate over long files
+by anchoring each block to an absolute t_start reference instead of
+using a fixed sleep — which would accumulate error over time.</p>
+<p>The synthetic timestamp passed to put_audio() mirrors the role of
+time_info.inputBufferAdcTime in RealtimeAudioSource, so the processing
+thread can use identical TDOA logic regardless of the source.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.audiofile_source.AudioFileSource.start">
+<span class="sig-name descname"><span class="pre">start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.audiofile_source.AudioFileSource.start" title="Link to this definition">¶</a></dt>
+<dd><p>Iterates over the file block by block, pushing each block into
+the shared queue at the correct real-time pace.</p>
+<p>Blocks the calling thread until the file is exhausted or
+state.stop_event is set — same blocking behaviour as
+RealtimeAudioSource.start().</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.audiofile_source.AudioFileSource.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.audiofile_source.AudioFileSource.stop" title="Link to this definition">¶</a></dt>
+<dd><p>No-op: stop is handled via state.stop_event checked in the start() loop.
+Exists to keep the interface symmetric with RealtimeAudioSource.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-rt_bat_tracker.audio.audio_input">
+<span id="audio-input-py"></span><h2>audio_input.py<a class="headerlink" href="#module-rt_bat_tracker.audio.audio_input" title="Link to this heading">¶</a></h2>
+<p>audio_input.py</p>
+<dl class="simple">
+<dt>Provides two audio source classes with a unified interface:</dt><dd><ul class="simple">
+<li><p>RealtimeAudioSource: live capture via sounddevice/PortAudio</p></li>
+<li><p>AudioFileSource: file playback with real-time pacing</p></li>
+</ul>
+</dd>
+</dl>
+<p>Both write to SharedState.audio_queue via state.put_audio().
+The processing thread reads from the same queue without knowing
+which source is active.</p>
+<p>Entry point for the audio thread: run(state, cfg)</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.audio_input.run">
+<span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.audio.audio_input.</span></span><span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfg</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.audio_input.run" title="Link to this definition">¶</a></dt>
+<dd><p>Audio thread entry point — called once by the thread, never loops.</p>
+<p>Instantiates the correct source based on cfg.mode,
+calls source.start() which blocks until shutdown,
+then calls source.stop() for cleanup.</p>
+<dl class="simple">
+<dt>Input mode defined in cfg.mode:</dt><dd><ul class="simple">
+<li><p>“portAudio” : live capture via sounddevice/PortAudio</p></li>
+<li><p>“alsa” : live capture via ALSA (Linux only)</p></li>
+<li><p>“audiofile” : playback of a WAV file with real-time pacing</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-rt_bat_tracker.audio.detector">
+<span id="detector-py"></span><h2>detector.py<a class="headerlink" href="#module-rt_bat_tracker.audio.detector" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.detector.AudioBlockMonitor">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.audio.detector.</span></span><span class="sig-name descname"><span class="pre">AudioBlockMonitor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.detector.AudioBlockMonitor" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.detector.AudioBlockMonitor.start">
+<span class="sig-name descname"><span class="pre">start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.detector.AudioBlockMonitor.start" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.detector.AudioBlockMonitor.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.detector.AudioBlockMonitor.stop" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-rt_bat_tracker.audio.play_tone">
+<span id="play-tone-py"></span><h2>play_tone.py<a class="headerlink" href="#module-rt_bat_tracker.audio.play_tone" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.play_tone.PlayTone">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.audio.play_tone.</span></span><span class="sig-name descname"><span class="pre">PlayTone</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfg</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.play_tone.PlayTone" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Plays a tone of given frequency and duration on the specified channel(s) trough the soundcard using ALSA.
+This function is used only if –beep parse argument is specified in the command line, together with the desired parametrs: duration [ms], frequency [kHz] and rate [calls/sec]</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.play_tone.PlayTone.beep">
+<span class="sig-name descname"><span class="pre">beep</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tone</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interval</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.play_tone.PlayTone.beep" title="Link to this definition">¶</a></dt>
+<dd><p>Play the tone on the specified channel(s) at the given interval.
+Arguments:</p>
+<blockquote>
+<div><p>tone: numpy array of int32 samples
+interval: time in seconds between each beep</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.play_tone.PlayTone.detector">
+<span class="sig-name descname"><span class="pre">detector</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.play_tone.PlayTone.detector" title="Link to this definition">¶</a></dt>
+<dd><p>Reads form state.detector_queue data pusched by the processing thread and (if available) prints them to the console.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.play_tone.PlayTone.make_sweep">
+<span class="sig-name descname"><span class="pre">make_sweep</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_freq</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_freq</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">samples</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.play_tone.PlayTone.make_sweep" title="Link to this definition">¶</a></dt>
+<dd><p>Generate a linear sine sweep.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.play_tone.PlayTone.make_tone">
+<span class="sig-name descname"><span class="pre">make_tone</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frequency</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">samples</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.play_tone.PlayTone.make_tone" title="Link to this definition">¶</a></dt>
+<dd><p>Generate a sine wave tone.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.play_tone.PlayTone.output">
+<span class="sig-name descname"><span class="pre">output</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tone</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_chunks</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">amp</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.play_tone.PlayTone.output" title="Link to this definition">¶</a></dt>
+<dd><p>Called by beep() to write the tone to the ALSA PCM device for the specified channel.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>tone (_type_): numpy array of int32 samples
+ch (_type_): channel number(s)
+num_chunks (_type_): number of chunks of the tone to write, integer value related to the playback blocksize
+amp (_type_): amplitude multiplier</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.play_tone.PlayTone.play">
+<span class="sig-name descname"><span class="pre">play</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">duration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frequency</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.play_tone.PlayTone.play" title="Link to this definition">¶</a></dt>
+<dd><p>Play a tone of given frequency and duration.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-rt_bat_tracker.audio.portaudio_source">
+<span id="portaudio-source-py"></span><h2>portaudio_source.py<a class="headerlink" href="#module-rt_bat_tracker.audio.portaudio_source" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.portaudio_source.PortAudioSource">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.audio.portaudio_source.</span></span><span class="sig-name descname"><span class="pre">PortAudioSource</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">21</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">192000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'float32'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.portaudio_source.PortAudioSource" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Captures live audio from a hardware device via PortAudio.</p>
+<p>The PortAudio callback runs in a dedicated high-priority C thread.
+It must return as fast as possible — no blocking calls, no logging,
+no heavy computation. Only copy + put_nowait.</p>
+<p>Timing reference: time_info.inputBufferAdcTime (hardware ADC timestamp)
+is passed to state.put_audio() so the processing thread can use it
+for TDOA calculations without any additional synchronization.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.portaudio_source.PortAudioSource.start">
+<span class="sig-name descname"><span class="pre">start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.portaudio_source.PortAudioSource.start" title="Link to this definition">¶</a></dt>
+<dd><p>Opens the PortAudio stream and blocks the calling thread
+until state.stop_event is set.
+Equivalent role to AudioFileSource.start() — both block here.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.portaudio_source.PortAudioSource.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.portaudio_source.PortAudioSource.stop" title="Link to this definition">¶</a></dt>
+<dd><p>Closes the PortAudio stream and releases resources.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.portaudio_source.resolve_input_device">
+<span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.audio.portaudio_source.</span></span><span class="sig-name descname"><span class="pre">resolve_input_device</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device_arg</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.portaudio_source.resolve_input_device" title="Link to this definition">¶</a></dt>
+<dd><p>Resolve a device argument to a sounddevice device index.</p>
+<dl class="simple">
+<dt>Accepts:</dt><dd><ul class="simple">
+<li><p>None        → system default input device</p></li>
+<li><p>int / “3”   → device index</p></li>
+<li><p>“str”       → partial name match (case-insensitive)</p></li>
+</ul>
+</dd>
+</dl>
+<p>Returns the resolved integer index, or None for system default.
+Raises ValueError if no matching input device is found.</p>
+</dd></dl>
+
+</section>
+<section id="module-rt_bat_tracker.audio.sources">
+<span id="sources-py"></span><h2>sources.py<a class="headerlink" href="#module-rt_bat_tracker.audio.sources" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.sources.AudioFileSource">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.audio.sources.</span></span><span class="sig-name descname"><span class="pre">AudioFileSource</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loaded_durn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">9</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.sources.AudioFileSource" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.sources.AudioFileSource.get_block">
+<span class="sig-name descname"><span class="pre">get_block</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.sources.AudioFileSource.get_block" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.sources.AudioFileSource.get_blocksize">
+<span class="sig-name descname"><span class="pre">get_blocksize</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.sources.AudioFileSource.get_blocksize" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.sources.AudioFileSource.start">
+<span class="sig-name descname"><span class="pre">start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.sources.AudioFileSource.start" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.sources.AudioFileSource.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.sources.AudioFileSource.stop" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.sources.RealtimeAudioSource">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.audio.sources.</span></span><span class="sig-name descname"><span class="pre">RealtimeAudioSource</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">192000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2048</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.sources.RealtimeAudioSource" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.sources.RealtimeAudioSource.get_block">
+<span class="sig-name descname"><span class="pre">get_block</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.sources.RealtimeAudioSource.get_block" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.sources.RealtimeAudioSource.get_blocksize">
+<span class="sig-name descname"><span class="pre">get_blocksize</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.sources.RealtimeAudioSource.get_blocksize" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.sources.RealtimeAudioSource.start">
+<span class="sig-name descname"><span class="pre">start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.sources.RealtimeAudioSource.start" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.sources.RealtimeAudioSource.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.sources.RealtimeAudioSource.stop" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="rt_bat_tracker.audio.sources.resolve_input_device">
+<span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.audio.sources.</span></span><span class="sig-name descname"><span class="pre">resolve_input_device</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device_arg</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.audio.sources.resolve_input_device" title="Link to this definition">¶</a></dt>
+<dd><p>device_arg can be:
+- None
+- integer index as string, e.g. “3”
+- device name or partial name</p>
+</dd></dl>
+
+</section>
+</section>
+<section id="gui">
+<h1>GUI<a class="headerlink" href="#gui" title="Link to this heading">¶</a></h1>
+<section id="module-rt_bat_tracker.GUI.GUI">
+<span id="gui-py"></span><h2>GUI.py<a class="headerlink" href="#module-rt_bat_tracker.GUI.GUI" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="rt_bat_tracker.GUI.GUI.MainWindow">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.GUI.GUI.</span></span><span class="sig-name descname"><span class="pre">MainWindow</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.GUI.GUI.MainWindow" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">QMainWindow</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.GUI.GUI.MainWindow.eventFilter">
+<span class="sig-name descname"><span class="pre">eventFilter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.GUI.GUI.MainWindow.eventFilter" title="Link to this definition">¶</a></dt>
+<dd><p>Handle mouse hover events (for ThresholdSlider)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.GUI.GUI.MainWindow.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.GUI.GUI.MainWindow.stop" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="rt_bat_tracker.GUI.GUI.run">
+<span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.GUI.GUI.</span></span><span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.GUI.GUI.run" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</section>
+<section id="module-rt_bat_tracker.GUI.gui_update">
+<span id="gui-update-py"></span><h2>gui_update.py<a class="headerlink" href="#module-rt_bat_tracker.GUI.gui_update" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="rt_bat_tracker.GUI.gui_update.MainWindow">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.GUI.gui_update.</span></span><span class="sig-name descname"><span class="pre">MainWindow</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.GUI.gui_update.MainWindow" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">QMainWindow</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.GUI.gui_update.MainWindow.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.GUI.gui_update.MainWindow.stop" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="rt_bat_tracker.GUI.gui_update.run">
+<span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.GUI.gui_update.</span></span><span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.GUI.gui_update.run" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</section>
+</section>
+<section id="simulation">
+<h1>Simulation<a class="headerlink" href="#simulation" title="Link to this heading">¶</a></h1>
+<section id="array-shape-py">
+<h2>array_shape.py<a class="headerlink" href="#array-shape-py" title="Link to this heading">¶</a></h2>
+</section>
+<section id="module-rt_bat_tracker.sim.sim_localisation_mpr2003">
+<span id="sim-localisation-mpr2003-py"></span><h2>sim_localisation_mpr2003.py<a class="headerlink" href="#module-rt_bat_tracker.sim.sim_localisation_mpr2003" title="Link to this heading">¶</a></h2>
+<section id="mellen-pachter-raquet-2003-ieee-trans-aerospace-and-electronic-systems">
+<h3>Mellen, Pachter, Raquet 2003: IEEE Trans. Aerospace and Electronic Systems<a class="headerlink" href="#mellen-pachter-raquet-2003-ieee-trans-aerospace-and-electronic-systems" title="Link to this heading">¶</a></h3>
+<p>This is also known as the spherical-intersection method (SX) - as first
+proposed by Schau &amp; Robinson 1987.</p>
+<p>Also see Malanowski &amp; Kulpa 2012 for a repeat of the formulation in Mellen,
+Pachter &amp; Raquet 2003.</p>
+<section id="reference">
+<h4>Reference<a class="headerlink" href="#reference" title="Link to this heading">¶</a></h4>
+<ul class="simple">
+<li><p>Mellen, G., Pachter, M., &amp; Raquet, J. (2003). Closed-form solution for deter-
+mining emitter location using time difference of arrival measurements. IEEE
+Transactions on Aerospace and Electronic Systems, 39(3), 1056-1058.</p></li>
+<li><p>Malanowski, M., &amp; Kulpa, K. (2012). Two methods for target localization
+in multistatic passive radar. IEEE transactions on Aerospace and Electroni-
+c Systems, 48(1), 572-580.</p></li>
+<li><p>Schau, H. C., &amp; Robinson, A. Z. (1987). Passive source localization employing</p></li>
+</ul>
+<blockquote>
+<div><p>intersecting spherical surfaces from time-of-arrival differences. IEEE Transa-
+ctions on Acoustics, Speech, and Signal Processing, 35(8), 1223-1225.</p>
+</div></blockquote>
+</section>
+</section>
+<dl class="py function">
+<dt class="sig sig-object py" id="rt_bat_tracker.sim.sim_localisation_mpr2003.choose_correct_mpr_solutions">
+<span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.sim.sim_localisation_mpr2003.</span></span><span class="sig-name descname"><span class="pre">choose_correct_mpr_solutions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mic_array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Rs_12</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">a_b</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">obs_di</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.sim.sim_localisation_mpr2003.choose_correct_mpr_solutions" title="Link to this definition">¶</a></dt>
+<dd><p>The logic behind choice of source solutions is described in
+Section C of Malanowski &amp; Kulpa (2012).</p>
+<section id="parameters">
+<h3>Parameters<a class="headerlink" href="#parameters" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>mic_array<span class="classifier">(m,n) np.array</span></dt><dd><p>M mics with N dimensions.</p>
+</dd>
+<dt>Rs_12<span class="classifier">(2,) np.array</span></dt><dd><p>The two estimated range values</p>
+</dd>
+<dt>a_b<span class="classifier">tuple with two (3,) np.arrays</span></dt><dd><p>(a, b) -  see mpr_2003</p>
+</dd>
+<dt>obs_di<span class="classifier">(m-1,) np.array</span></dt><dd><p>M-1 np.array with range differences w.r.t 0th sensor.</p>
+</dd>
+</dl>
+</section>
+<section id="returns">
+<h3>Returns<a class="headerlink" href="#returns" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>xs<span class="classifier">(0,), (3,) or (2,3) np.array</span></dt><dd><p>Produces a single source estimate when there’s only one positive Rs.
+In case of two positive Rs, then outputs both valid solutions.</p>
+</dd>
+</dl>
+</section>
+<section id="references">
+<h3>References<a class="headerlink" href="#references" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Malanowski, M., &amp; Kulpa, K. (2012). Two methods for target localization
+in multistatic passive radar. IEEE transactions on Aerospace and Electroni-
+c Systems, 48(1), 572-580.</p></li>
+</ul>
+</section>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="rt_bat_tracker.sim.sim_localisation_mpr2003.mellen_pachter_raquet_2003">
+<span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.sim.sim_localisation_mpr2003.</span></span><span class="sig-name descname"><span class="pre">mellen_pachter_raquet_2003</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mic_array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">di</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src_id</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.sim.sim_localisation_mpr2003.mellen_pachter_raquet_2003" title="Link to this definition">¶</a></dt>
+<dd><p>A re-formulation of the spherical-intersection method originally proposed by
+Schau &amp; Robinson 1987.</p>
+<section id="id1">
+<h3>Parameters<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>mic_array<span class="classifier">(m,n) np.array</span></dt><dd><p>M mic coordinates with N dimensions.</p>
+</dd>
+<dt>di<span class="classifier">(m-1,) np.array</span></dt><dd><p>Range differences w.r.t. 0th sensor.</p>
+</dd>
+</dl>
+</section>
+<section id="id2">
+<h3>Returns<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>xs<span class="classifier">(1,n) or (2,n) np.array</span></dt><dd><p>If only one valid solution - then returns (1,n) np.array
+else returns both valid solutions as a (2,n) np.array.</p>
+</dd>
+</dl>
+</section>
+<section id="id3">
+<h3>Reference<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Mellen, G., Pachter, M., &amp; Raquet, J. (2003). Closed-form solution for deter-
+mining emitter location using time difference of arrival measurements. IEEE
+Transactions on Aerospace and Electronic Systems, 39(3), 1056-1058.</p></li>
+</ul>
+</section>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="rt_bat_tracker.sim.sim_localisation_mpr2003.solve_eqn_22">
+<span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.sim.sim_localisation_mpr2003.</span></span><span class="sig-name descname"><span class="pre">solve_eqn_22</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">b</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rnd_id</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.sim.sim_localisation_mpr2003.solve_eqn_22" title="Link to this definition">¶</a></dt>
+<dd><p>Implements Equation 22 in MPR 2003.</p>
+<section id="id4">
+<h3>Parameters<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
+<p>a,b : (3,) np.arrays</p>
+</section>
+<section id="id5">
+<h3>Returns<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>Rs12<span class="classifier">(2,) np.array</span></dt><dd><p>Array holding Rs1 and Rs2 - the two range estimates arising from
+the quadratic equation.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="rt_bat_tracker.sim.sim_localisation_mpr2003.tristar_mellen_pachter">
+<span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.sim.sim_localisation_mpr2003.</span></span><span class="sig-name descname"><span class="pre">tristar_mellen_pachter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mic_array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">di</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src_id</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.sim.sim_localisation_mpr2003.tristar_mellen_pachter" title="Link to this definition">¶</a></dt>
+<dd><p>Wrapper around mellen_pachter_raquet_2003
+which only outputs positive y axis sources.</p>
+</dd></dl>
+
+</section>
+</section>
+<section id="tracking">
+<h1>Tracking<a class="headerlink" href="#tracking" title="Link to this heading">¶</a></h1>
+<section id="module-rt_bat_tracker.tracking.beta_processing">
+<span id="beta-processing-py"></span><h2>beta_processing.py<a class="headerlink" href="#module-rt_bat_tracker.tracking.beta_processing" title="Link to this heading">¶</a></h2>
+<p>processing.py</p>
+<p>Reads audio blocks from SharedState.audio_queue and runs
+signal evaluation on each block.</p>
+<p>The processing loop uses a blocking get() with timeout so the thread
+yields CPU to other threads while waiting for new data — no busy-waiting.
+Results are written to SharedState.result_queue via state.put_result().</p>
+<p>Entry point for the processing thread: run(state, cfg)</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="rt_bat_tracker.tracking.beta_processing.AudioProcessor">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.tracking.beta_processing.</span></span><span class="sig-name descname"><span class="pre">AudioProcessor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfg</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.tracking.beta_processing.AudioProcessor" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Consumes audio blocks from the shared queue and runs
+signal evaluations on each block.</p>
+<p>Designed to run in a single dedicated thread.
+All methods are called sequentially — no internal threading.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.tracking.beta_processing.AudioProcessor.process">
+<span class="sig-name descname"><span class="pre">process</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.tracking.beta_processing.AudioProcessor.process" title="Link to this definition">¶</a></dt>
+<dd><p>Run all evaluations on a call queue.
+Returns a result dict passed to state.put_result().</p>
+<p>Extend this method with FFT, TDOA, beamforming, etc.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.tracking.beta_processing.AudioProcessor.run_loop">
+<span class="sig-name descname"><span class="pre">run_loop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.tracking.beta_processing.AudioProcessor.run_loop" title="Link to this definition">¶</a></dt>
+<dd><p>Main processing loop — runs for the lifetime of the thread.</p>
+<p>Description:
+At each cycle reads block, timeastamp from the audio queue,
+then evaluates RMS values for all the channels and checks threshold.
+RMS are evaluated after a highpass filter is applied to the block.
+As soon as a channel exceeds the threshold a new call is set
+and a call_chunk is updated in order to have a 5 - 10 ms audio
+chunk to be processed.</p>
+<p>Returns when state.stop_event is set.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="rt_bat_tracker.tracking.beta_processing.run">
+<span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.tracking.beta_processing.</span></span><span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfg</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.tracking.beta_processing.run" title="Link to this definition">¶</a></dt>
+<dd><p>Processing thread entry point — called once by the thread, never loops.
+Instantiates AudioProcessor and runs its loop until shutdown.</p>
+</dd></dl>
+
+</section>
+<section id="module-rt_bat_tracker.tracking.common_functions">
+<span id="common-functions-py"></span><h2>common_functions.py<a class="headerlink" href="#module-rt_bat_tracker.tracking.common_functions" title="Link to this heading">¶</a></h2>
+<p>Created on Wed Jul 26 17:53:33 2023</p>
+<p>&#64;author: theja</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="rt_bat_tracker.tracking.common_functions.calc_delay">
+<span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.tracking.common_functions.</span></span><span class="sig-name descname"><span class="pre">calc_delay</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">two_ch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">192000</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.tracking.common_functions.calc_delay" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="rt_bat_tracker.tracking.common_functions.calc_multich_delays">
+<span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.tracking.common_functions.</span></span><span class="sig-name descname"><span class="pre">calc_multich_delays</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">multich_audio</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">192000</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.tracking.common_functions.calc_multich_delays" title="Link to this definition">¶</a></dt>
+<dd><p>Calculates peak delay based with reference ot
+channel 1.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="rt_bat_tracker.tracking.common_functions.calc_rms">
+<span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.tracking.common_functions.</span></span><span class="sig-name descname"><span class="pre">calc_rms</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">in_sig</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.tracking.common_functions.calc_rms" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</section>
+<section id="module-rt_bat_tracker.tracking.localisation_mpr2003">
+<span id="localisation-mpr2003-py"></span><h2>localisation_mpr2003.py<a class="headerlink" href="#module-rt_bat_tracker.tracking.localisation_mpr2003" title="Link to this heading">¶</a></h2>
+<section id="id6">
+<h3>Mellen, Pachter, Raquet 2003: IEEE Trans. Aerospace and Electronic Systems<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h3>
+<p>This is also known as the spherical-intersection method (SX) - as first
+proposed by Schau &amp; Robinson 1987.</p>
+<p>Also see Malanowski &amp; Kulpa 2012 for a repeat of the formulation in Mellen,
+Pachter &amp; Raquet 2003.</p>
+<section id="id7">
+<h4>Reference<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h4>
+<ul class="simple">
+<li><p>Mellen, G., Pachter, M., &amp; Raquet, J. (2003). Closed-form solution for deter-
+mining emitter location using time difference of arrival measurements. IEEE
+Transactions on Aerospace and Electronic Systems, 39(3), 1056-1058.</p></li>
+<li><p>Malanowski, M., &amp; Kulpa, K. (2012). Two methods for target localization
+in multistatic passive radar. IEEE transactions on Aerospace and Electroni-
+c Systems, 48(1), 572-580.</p></li>
+<li><p>Schau, H. C., &amp; Robinson, A. Z. (1987). Passive source localization employing</p></li>
+</ul>
+<blockquote>
+<div><p>intersecting spherical surfaces from time-of-arrival differences. IEEE Transa-
+ctions on Acoustics, Speech, and Signal Processing, 35(8), 1223-1225.</p>
+</div></blockquote>
+</section>
+</section>
+<dl class="py function">
+<dt class="sig sig-object py" id="rt_bat_tracker.tracking.localisation_mpr2003.choose_correct_mpr_solutions">
+<span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.tracking.localisation_mpr2003.</span></span><span class="sig-name descname"><span class="pre">choose_correct_mpr_solutions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mic_array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Rs_12</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">a_b</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">obs_di</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.tracking.localisation_mpr2003.choose_correct_mpr_solutions" title="Link to this definition">¶</a></dt>
+<dd><p>The logic behind choice of source solutions is described in
+Section C of Malanowski &amp; Kulpa (2012).</p>
+<section id="id8">
+<h3>Parameters<a class="headerlink" href="#id8" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>mic_array<span class="classifier">(m,n) np.array</span></dt><dd><p>M mics with N dimensions.</p>
+</dd>
+<dt>Rs_12<span class="classifier">(2,) np.array</span></dt><dd><p>The two estimated range values</p>
+</dd>
+<dt>a_b<span class="classifier">tuple with two (3,) np.arrays</span></dt><dd><p>(a, b) -  see mpr_2003</p>
+</dd>
+<dt>obs_di<span class="classifier">(m-1,) np.array</span></dt><dd><p>M-1 np.array with range differences w.r.t 0th sensor.</p>
+</dd>
+</dl>
+</section>
+<section id="id9">
+<h3>Returns<a class="headerlink" href="#id9" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>xs<span class="classifier">(0,), (3,) or (2,3) np.array</span></dt><dd><p>Produces a single source estimate when there’s only one positive Rs.
+In case of two positive Rs, then outputs both valid solutions.</p>
+</dd>
+</dl>
+</section>
+<section id="id10">
+<h3>References<a class="headerlink" href="#id10" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Malanowski, M., &amp; Kulpa, K. (2012). Two methods for target localization
+in multistatic passive radar. IEEE transactions on Aerospace and Electroni-
+c Systems, 48(1), 572-580.</p></li>
+</ul>
+</section>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="rt_bat_tracker.tracking.localisation_mpr2003.mellen_pachter_raquet_2003">
+<span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.tracking.localisation_mpr2003.</span></span><span class="sig-name descname"><span class="pre">mellen_pachter_raquet_2003</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mic_array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">di</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.tracking.localisation_mpr2003.mellen_pachter_raquet_2003" title="Link to this definition">¶</a></dt>
+<dd><p>A re-formulation of the spherical-intersection method originally proposed by
+Schau &amp; Robinson 1987.</p>
+<section id="id11">
+<h3>Parameters<a class="headerlink" href="#id11" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>mic_array<span class="classifier">(m,n) np.array</span></dt><dd><p>M mic coordinates with N dimensions.</p>
+</dd>
+<dt>di<span class="classifier">(m-1,) np.array</span></dt><dd><p>Range differences w.r.t. 0th sensor.</p>
+</dd>
+</dl>
+</section>
+<section id="id12">
+<h3>Returns<a class="headerlink" href="#id12" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>xs<span class="classifier">(1,n) or (2,n) np.array</span></dt><dd><p>If only one valid solution - then returns (1,n) np.array
+else returns both valid solutions as a (2,n) np.array.</p>
+</dd>
+</dl>
+</section>
+<section id="id13">
+<h3>Reference<a class="headerlink" href="#id13" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Mellen, G., Pachter, M., &amp; Raquet, J. (2003). Closed-form solution for deter-
+mining emitter location using time difference of arrival measurements. IEEE
+Transactions on Aerospace and Electronic Systems, 39(3), 1056-1058.</p></li>
+</ul>
+</section>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="rt_bat_tracker.tracking.localisation_mpr2003.solve_eqn_22">
+<span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.tracking.localisation_mpr2003.</span></span><span class="sig-name descname"><span class="pre">solve_eqn_22</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">b</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.tracking.localisation_mpr2003.solve_eqn_22" title="Link to this definition">¶</a></dt>
+<dd><p>Implements Equation 22 in MPR 2003.</p>
+<section id="id14">
+<h3>Parameters<a class="headerlink" href="#id14" title="Link to this heading">¶</a></h3>
+<p>a,b : (3,) np.arrays</p>
+</section>
+<section id="id15">
+<h3>Returns<a class="headerlink" href="#id15" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>Rs12<span class="classifier">(2,) np.array</span></dt><dd><p>Array holding Rs1 and Rs2 - the two range estimates arising from
+the quadratic equation.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="rt_bat_tracker.tracking.localisation_mpr2003.tristar_mellen_pachter">
+<span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.tracking.localisation_mpr2003.</span></span><span class="sig-name descname"><span class="pre">tristar_mellen_pachter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mic_array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">di</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">normal_vector</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.tracking.localisation_mpr2003.tristar_mellen_pachter" title="Link to this definition">¶</a></dt>
+<dd><p>Wrapper around mellen_pachter_raquet_2003
+which only outputs positive y/z axis sources.</p>
+</dd></dl>
+
+</section>
+</section>
+<section id="utils">
+<h1>Utils<a class="headerlink" href="#utils" title="Link to this heading">¶</a></h1>
+<section id="module-rt_bat_tracker.utils.cli">
+<span id="cli-py"></span><h2>cli.py<a class="headerlink" href="#module-rt_bat_tracker.utils.cli" title="Link to this heading">¶</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.cli.parse_args">
+<span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.utils.cli.</span></span><span class="sig-name descname"><span class="pre">parse_args</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">audioFiles_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'single_bat_1234.wav'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'audiofile'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">argv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.cli.parse_args" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</section>
+<section id="module-rt_bat_tracker.utils.dataClass">
+<span id="dataclass-py"></span><h2>dataClass.py<a class="headerlink" href="#module-rt_bat_tracker.utils.dataClass" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.dataClass.SharedState">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.utils.dataClass.</span></span><span class="sig-name descname"><span class="pre">SharedState</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cfg</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.dataClass.SharedState" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.dataClass.SharedState.elapsed_time">
+<span class="sig-name descname"><span class="pre">elapsed_time</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.dataClass.SharedState.elapsed_time" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.dataClass.SharedState.get_audio">
+<span class="sig-name descname"><span class="pre">get_audio</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.dataClass.SharedState.get_audio" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.dataClass.SharedState.get_resampled_detector_data">
+<span class="sig-name descname"><span class="pre">get_resampled_detector_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.dataClass.SharedState.get_resampled_detector_data" title="Link to this definition">¶</a></dt>
+<dd><p>Collects data from the detector queue, and upsamples by a factor o 4 so that the tone_layer palys the chunk downpitched by 4. Returns None if the queue is empty or if stop_event is set.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.dataClass.SharedState.get_result">
+<span class="sig-name descname"><span class="pre">get_result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.dataClass.SharedState.get_result" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.dataClass.SharedState.grab_wav_buffer">
+<span class="sig-name descname"><span class="pre">grab_wav_buffer</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.dataClass.SharedState.grab_wav_buffer" title="Link to this definition">¶</a></dt>
+<dd><p>returns frames stored in the buffer since the last grab
+as &lt;list&gt; of elements [blocksize, channels]</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.dataClass.SharedState.put_audio">
+<span class="sig-name descname"><span class="pre">put_audio</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">audio_block</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.dataClass.SharedState.put_audio" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.dataClass.SharedState.put_raw_for_detector">
+<span class="sig-name descname"><span class="pre">put_raw_for_detector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.dataClass.SharedState.put_raw_for_detector" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.dataClass.SharedState.put_result">
+<span class="sig-name descname"><span class="pre">put_result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.dataClass.SharedState.put_result" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.dataClass.SharedState.rotate_coords">
+<span class="sig-name descname"><span class="pre">rotate_coords</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">root_xyz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotation_x_deg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotation_z_deg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h_displacement</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.dataClass.SharedState.rotate_coords" title="Link to this definition">¶</a></dt>
+<dd><p>Rotates the microphone coordinates around the X and Z axes and translates them along the Z axis.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.dataClass.SharedState.start">
+<span class="sig-name descname"><span class="pre">start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.dataClass.SharedState.start" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.dataClass.SharedState.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">caller</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'unspecified'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.dataClass.SharedState.stop" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.dataClass.SharedState.write_wav_buffer">
+<span class="sig-name descname"><span class="pre">write_wav_buffer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.dataClass.SharedState.write_wav_buffer" title="Link to this definition">¶</a></dt>
+<dd><p>called from processing, writes blocks in a deque buffer.
+if data are not grabbed from session older ones are dropped</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>block (np.array): shape [blocksize, channels]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-rt_bat_tracker.utils.event_class">
+<span id="event-class-py"></span><h2>event_class.py<a class="headerlink" href="#module-rt_bat_tracker.utils.event_class" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.event_class.Event">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.utils.event_class.</span></span><span class="sig-name descname"><span class="pre">Event</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">idx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_time</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.event_class.Event" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.event_class.Event.add_point">
+<span class="sig-name descname"><span class="pre">add_point</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.event_class.Event.add_point" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.event_class.Event.terminate_event">
+<span class="sig-name descname"><span class="pre">terminate_event</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.event_class.Event.terminate_event" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.event_class.Event.update_sleep_timer">
+<span class="sig-name descname"><span class="pre">update_sleep_timer</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.event_class.Event.update_sleep_timer" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-rt_bat_tracker.utils.measure">
+<span id="measure-py"></span><h2>measure.py<a class="headerlink" href="#module-rt_bat_tracker.utils.measure" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.measure.Measure">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.utils.measure.</span></span><span class="sig-name descname"><span class="pre">Measure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfg</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.measure.Measure" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.measure.Measure.loop">
+<span class="sig-name descname"><span class="pre">loop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.measure.Measure.loop" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.measure.run">
+<span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.utils.measure.</span></span><span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.measure.run" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</section>
+<section id="module-rt_bat_tracker.utils.paths">
+<span id="paths-py"></span><h2>paths.py<a class="headerlink" href="#module-rt_bat_tracker.utils.paths" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.paths.ProjectPaths">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.utils.paths.</span></span><span class="sig-name descname"><span class="pre">ProjectPaths</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">project_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pathlib.Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pathlib.Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">audio_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pathlib.Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mic_layout_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pathlib.Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">groundtruth_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pathlib.Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pathlib.Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pathlib.Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gif_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pathlib.Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">png_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pathlib.Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gui_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pathlib.Path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.paths.ProjectPaths" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.paths.ProjectPaths.audio_dir">
+<span class="sig-name descname"><span class="pre">audio_dir</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span></span><a class="headerlink" href="#rt_bat_tracker.utils.paths.ProjectPaths.audio_dir" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.paths.ProjectPaths.config_dir">
+<span class="sig-name descname"><span class="pre">config_dir</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span></span><a class="headerlink" href="#rt_bat_tracker.utils.paths.ProjectPaths.config_dir" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.paths.ProjectPaths.data_dir">
+<span class="sig-name descname"><span class="pre">data_dir</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span></span><a class="headerlink" href="#rt_bat_tracker.utils.paths.ProjectPaths.data_dir" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.paths.ProjectPaths.gif_dir">
+<span class="sig-name descname"><span class="pre">gif_dir</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span></span><a class="headerlink" href="#rt_bat_tracker.utils.paths.ProjectPaths.gif_dir" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.paths.ProjectPaths.groundtruth_dir">
+<span class="sig-name descname"><span class="pre">groundtruth_dir</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span></span><a class="headerlink" href="#rt_bat_tracker.utils.paths.ProjectPaths.groundtruth_dir" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.paths.ProjectPaths.gui_dir">
+<span class="sig-name descname"><span class="pre">gui_dir</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span></span><a class="headerlink" href="#rt_bat_tracker.utils.paths.ProjectPaths.gui_dir" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.paths.ProjectPaths.mic_layout_dir">
+<span class="sig-name descname"><span class="pre">mic_layout_dir</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span></span><a class="headerlink" href="#rt_bat_tracker.utils.paths.ProjectPaths.mic_layout_dir" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.paths.ProjectPaths.png_dir">
+<span class="sig-name descname"><span class="pre">png_dir</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span></span><a class="headerlink" href="#rt_bat_tracker.utils.paths.ProjectPaths.png_dir" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.paths.ProjectPaths.project_dir">
+<span class="sig-name descname"><span class="pre">project_dir</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span></span><a class="headerlink" href="#rt_bat_tracker.utils.paths.ProjectPaths.project_dir" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.paths.ProjectPaths.results_dir">
+<span class="sig-name descname"><span class="pre">results_dir</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span></span><a class="headerlink" href="#rt_bat_tracker.utils.paths.ProjectPaths.results_dir" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.paths.get_project_paths">
+<span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.utils.paths.</span></span><span class="sig-name descname"><span class="pre">get_project_paths</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#rt_bat_tracker.utils.paths.ProjectPaths" title="rt_bat_tracker.utils.paths.ProjectPaths"><span class="pre">ProjectPaths</span></a></span></span><a class="headerlink" href="#rt_bat_tracker.utils.paths.get_project_paths" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</section>
+<section id="module-rt_bat_tracker.utils.point_class">
+<span id="point-class-py"></span><h2>point_class.py<a class="headerlink" href="#module-rt_bat_tracker.utils.point_class" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.point_class.Point">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.utils.point_class.</span></span><span class="sig-name descname"><span class="pre">Point</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">abs_ts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rel_ts</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.point_class.Point" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>probably this could become a simpler data collection like a list,
+at the moment I think it will only contain static informations of the point</p>
+</dd></dl>
+
+</section>
+<section id="module-rt_bat_tracker.utils.session_class">
+<span id="session-class-py"></span><h2>session_class.py<a class="headerlink" href="#module-rt_bat_tracker.utils.session_class" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.session_class.Session">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">rt_bat_tracker.utils.session_class.</span></span><span class="sig-name descname"><span class="pre">Session</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cfg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">projPaths</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.session_class.Session" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Session class is istantiated only once for the time the bat tracker is running and it will contain
+all the events detected.
+It must store general informations about the session like time, config file used, number of events detected, ecc.
+This must also handle the birth and death of new events checking the sleep_timer when no new calls are stored
+The session will be saved as a csv file in order to be able to acces each event any moment also after shuting down the bat-tracker</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.session_class.Session.get_recall_event_list">
+<span class="sig-name descname"><span class="pre">get_recall_event_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session_name</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.session_class.Session.get_recall_event_list" title="Link to this definition">¶</a></dt>
+<dd><p>Load events from disk and return a list of Event objects.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.session_class.Session.get_recall_session_list">
+<span class="sig-name descname"><span class="pre">get_recall_session_list</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.session_class.Session.get_recall_session_list" title="Link to this definition">¶</a></dt>
+<dd><p>Returns a list of all sessions available in the results directory.
+Each session is represented by its name (directory name).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.session_class.Session.kill_event">
+<span class="sig-name descname"><span class="pre">kill_event</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.session_class.Session.kill_event" title="Link to this definition">¶</a></dt>
+<dd><p>killing an event means placing it in the event list complete of the entire spectrogram
+of one track, the audio file? some stats about the event?</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.session_class.Session.new_event">
+<span class="sig-name descname"><span class="pre">new_event</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">timestamp</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.session_class.Session.new_event" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.session_class.Session.read_event">
+<span class="sig-name descname"><span class="pre">read_event</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">this_event</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.session_class.Session.read_event" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.session_class.Session.read_points_for_playback">
+<span class="sig-name descname"><span class="pre">read_points_for_playback</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">this_event</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">playback_time</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.session_class.Session.read_points_for_playback" title="Link to this definition">¶</a></dt>
+<dd><p>Given the event and the time in seconds this fucntion returns the points of the event before the playback_time</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.session_class.Session.read_spectrogram_for_playback">
+<span class="sig-name descname"><span class="pre">read_spectrogram_for_playback</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">event</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">playback_time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shape</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.session_class.Session.read_spectrogram_for_playback" title="Link to this definition">¶</a></dt>
+<dd><p>Given the event and the time in seconds this fucntion returns the spectrogram of the event before the playback_time</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.session_class.Session.update">
+<span class="sig-name descname"><span class="pre">update</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.session_class.Session.update" title="Link to this definition">¶</a></dt>
+<dd><p>handles session update:
+if there is no active event creates one
+if the active event is on for more than the max_event_time given replaces it with a new one
+if no data on input keeps the event alive only for evetn_max_sleep_time seconds and then kills the event</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>pos (new point position or None): already validated results [x,y,z] or None
+timestamp (adc timestamp): adc synchronized timestamp</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.session_class.Session.update_spectrogram">
+<span class="sig-name descname"><span class="pre">update_spectrogram</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ch</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.session_class.Session.update_spectrogram" title="Link to this definition">¶</a></dt>
+<dd><p>perform fft on one channel and save the (samples, bins) np.array of np.float16 in the event spectrogram</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rt_bat_tracker.utils.session_class.Session.write_audiofile">
+<span class="sig-name descname"><span class="pre">write_audiofile</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#rt_bat_tracker.utils.session_class.Session.write_audiofile" title="Link to this definition">¶</a></dt>
+<dd><p>if an event is active stores the waveforms of all channels to be saved in a file at the oend of the event
+[Storing also the timestamp could be useful for further analysis, like identifying the exact point related to the
+call in the audiofile. Will implement this later]
+When new audio data are collected, they are processed via fft to obtain tha spectrogram, also stored in the event</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">RealBat</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#main">Main</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="#audio">Audio</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#module-rt_bat_tracker.audio.alsa_source">alsa_source.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-rt_bat_tracker.audio.audiofile_source">audiofile_source.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-rt_bat_tracker.audio.audio_input">audio_input.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-rt_bat_tracker.audio.detector">detector.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-rt_bat_tracker.audio.play_tone">play_tone.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-rt_bat_tracker.audio.portaudio_source">portaudio_source.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-rt_bat_tracker.audio.sources">sources.py</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="#gui">GUI</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#module-rt_bat_tracker.GUI.GUI">GUI.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-rt_bat_tracker.GUI.gui_update">gui_update.py</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="#simulation">Simulation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#array-shape-py">array_shape.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-rt_bat_tracker.sim.sim_localisation_mpr2003">sim_localisation_mpr2003.py</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="#tracking">Tracking</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#module-rt_bat_tracker.tracking.beta_processing">beta_processing.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-rt_bat_tracker.tracking.common_functions">common_functions.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-rt_bat_tracker.tracking.localisation_mpr2003">localisation_mpr2003.py</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="#utils">Utils</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#module-rt_bat_tracker.utils.cli">cli.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-rt_bat_tracker.utils.dataClass">dataClass.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-rt_bat_tracker.utils.event_class">event_class.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-rt_bat_tracker.utils.measure">measure.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-rt_bat_tracker.utils.paths">paths.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-rt_bat_tracker.utils.point_class">point_class.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-rt_bat_tracker.utils.session_class">session_class.py</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">RealBat Documentation</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Giovanni Baldini.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/modules.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
