@@ -1,7 +1,7 @@
 # %% backend
 # %matplotlib qt
 # %% IMPORTS
-import sim_localisation_mpr2003 as mpr
+import sim_localisation_weighted_mpr2003 as mpr
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -277,7 +277,7 @@ MIC_SEPARATION = [0.8, 1.2]  # in meters
 MIC_DEPTH = [0.1, 0.3, 0.5, 0.7, 1.1]  # in meters
 N_MIC = [6, 7]
 ARRAY_SHAPE = [
-    "custom",
+    "test",
 ]  # "star", "prism", "paraboloid", "random", "custom", "test"]
 
 arrays = []

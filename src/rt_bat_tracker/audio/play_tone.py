@@ -1,4 +1,3 @@
-import alsaaudio as alsa
 import numpy as np
 import time
 import threading
@@ -15,16 +14,19 @@ class PlayTone:
     """
 
     def __init__(self, state, cfg):
+        import alsaaudio
+
+        self.alsa = alsaaudio
         self.cfg = cfg
         self.state = state
         self.channels = [0]
         self.blocksize = 4096
         self.chunk_time = np.around(self.blocksize * 1000 / self.cfg.fs, 2)
-        self.PCM = alsa.PCM(
-            type=alsa.PCM_PLAYBACK,
-            mode=alsa.PCM_NORMAL,
+        self.PCM = self.alsa.PCM(
+            type=self.alsa.PCM_PLAYBACK,
+            mode=self.alsa.PCM_NORMAL,
             rate=self.cfg.fs,
-            format=alsa.PCM_FORMAT_S32_LE,
+            format=self.alsa.PCM_FORMAT_S32_LE,
             periodsize=self.blocksize,
             periods=100,
             device="hw:Gen,0",

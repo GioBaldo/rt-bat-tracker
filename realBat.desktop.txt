@@ -2,7 +2,7 @@
 Version=1.0
 Type=Application
 Name=Il Mio Script Python
-Comment=Esegue main.py nell'ambiente BAT
+Comment=Esegue main.py in BAT
 Exec=/home/realbat/miniconda3/bin/conda run -n BAT python main.py
 Path=/home/realbat/rt-bat-tracker/src/rt_bat_tracker
 Icon=utilities-terminal

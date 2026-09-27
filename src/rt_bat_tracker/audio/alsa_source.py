@@ -1,6 +1,4 @@
-from re import match
-
-import alsaaudio as alsa
+# from re import match
 import numpy as np
 import time
 import logging
@@ -41,6 +39,9 @@ class AlsaAudioSource:
     """
 
     def __init__(self, state, device="hw:Gen,0", fs=192000, channels=8, blocksize=1024):
+        import alsaaudio
+
+        self.alsa = alsaaudio
         self._state = state
         self.device = device  # resolve_input_device(device)
         self.fs = fs
@@ -61,17 +62,17 @@ class AlsaAudioSource:
         """
         # read data to avoid overrun in playback mode
         if self._state.is_live is not True:
-            if self.PCM.state() in (2,3):
+            if self.PCM.state() in (2, 3):
                 size, block = self.PCM.read()
-            return False #returning false doesn't stop the process
+            return False  # returning false doesn't stop the process
         # picm starting
         if self.PCM.state() == 2:
             size, block = self.PCM.read()
             self.timestamp = self.get_timestamp()
 
             self.chunknum += 1
-        
-        #pcm running
+
+        # pcm running
         elif self.PCM.state() == 3:
 
             size, block = self.PCM.read()
@@ -107,12 +108,12 @@ class AlsaAudioSource:
         After the PCM is correctly initialized the loop() is activated for reading data
         """
         # try:
-        self.PCM = alsa.PCM(
-            type=alsa.PCM_CAPTURE,
-            mode=alsa.PCM_NORMAL,
+        self.PCM = self.alsa.PCM(
+            type=self.alsa.PCM_CAPTURE,
+            mode=self.alsa.PCM_NORMAL,
             rate=self.fs,
             channels=10,
-            format=alsa.PCM_FORMAT_S32_LE,
+            format=self.alsa.PCM_FORMAT_S32_LE,
             periodsize=self.blocksize,
             periods=10,
             device=self.device,
@@ -203,8 +204,8 @@ class AlsaAudioSource:
                 self.timer_bias = time.perf_counter_ns()
 
             case "raw":
-                self.PCM.set_tstamp_mode(alsa.PCM_TSTAMP_ENABLE)
-                self.PCM.set_tstamp_type(alsa.PCM_TSTAMP_TYPE_MONOTONIC_RAW)
+                self.PCM.set_tstamp_mode(self.alsa.PCM_TSTAMP_ENABLE)
+                self.PCM.set_tstamp_type(self.alsa.PCM_TSTAMP_TYPE_MONOTONIC_RAW)
                 trash = self.PCM.read()
                 self.timestamp_bias = (
                     self.PCM.htimestamp()[0] * 1000000000 + self.PCM.htimestamp()[1]
@@ -212,8 +213,8 @@ class AlsaAudioSource:
                 self.timer_bias = time.perf_counter_ns()
 
             case "timeofday":
-                self.PCM.set_tstamp_mode(alsa.PCM_TSTAMP_ENABLE)
-                self.PCM.set_tstamp_type(alsa.PCM_TSTAMP_TYPE_GETTIMEOFDAY)
+                self.PCM.set_tstamp_mode(self.alsa.PCM_TSTAMP_ENABLE)
+                self.PCM.set_tstamp_type(self.alsa.PCM_TSTAMP_TYPE_GETTIMEOFDAY)
                 trash = self.PCM.read()
                 self.timestamp_bias = (
                     self.PCM.htimestamp()[0] * 1000000000 + self.PCM.htimestamp()[1]
@@ -221,8 +222,8 @@ class AlsaAudioSource:
                 self.timer_bias = time.perf_counter_ns()
 
             case "monotonic":
-                self.PCM.set_tstamp_mode(alsa.PCM_TSTAMP_ENABLE)
-                self.PCM.set_tstamp_type(alsa.PCM_TSTAMP_TYPE_MONOTONIC)
+                self.PCM.set_tstamp_mode(self.alsa.PCM_TSTAMP_ENABLE)
+                self.PCM.set_tstamp_type(self.alsa.PCM_TSTAMP_TYPE_MONOTONIC)
                 trash = self.PCM.read()
                 self.timestamp_bias = (
                     self.PCM.htimestamp()[0] * 1000000000 + self.PCM.htimestamp()[1]
