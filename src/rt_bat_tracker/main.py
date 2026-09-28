@@ -18,6 +18,7 @@ automaticamente se il processo principale muore.
 import logging
 import os
 
+os.environ["PYQTGRAPH_QT_LIB"] = "PyQt5"
 os.environ["SD_ENABLE_ASIO"] = "1"
 # os.environ["PYQTGRAPH_QT_LIB"] = "PyQt5"
 
@@ -139,15 +140,16 @@ def main():
     proc_thread.start()
     logger.info("Thread Processing avviato  (tid=%d)", proc_thread.ident)
 
-    tone_player = PlayTone(state, cfg)
+    if cfg.mode == "alsa":
+        tone_player = PlayTone(state, cfg)
 
-    detector_thread = threading.Thread(
-        target=tone_player.detector,
-        name="Detector",
-        daemon=True,
-    )
+        detector_thread = threading.Thread(
+            target=tone_player.detector,
+            name="Detector",
+            daemon=True,
+        )
 
-    if args.beep:  
+    if args.beep:
         playback_thread = threading.Thread(
             target=tone_player.play,
             args=(args.beep[0], args.beep[1] * 1000, args.beep[2]),
@@ -156,7 +158,7 @@ def main():
         )
         playback_thread.start()
     else:
-        #detector_thread.start()
+        # detector_thread.start()
         pass
 
     # --- GUI nel main thread (requisito Qt) ---

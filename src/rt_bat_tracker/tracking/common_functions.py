@@ -21,7 +21,7 @@ def calc_delay(two_ch, fs=192000):
     delay = np.argmax(cc) - midpoint
     delay *= 1 / float(fs)
 
-    return delay
+    return delay, cc
 
 
 def calc_multich_delays(multich_audio, fs=192000):
@@ -32,6 +32,6 @@ def calc_multich_delays(multich_audio, fs=192000):
     nchannels = multich_audio.shape[1]
     delay_set = []
     for each in range(1, nchannels):
-
-        delay_set.append(calc_delay(multich_audio[:, [0, each]], fs))
+        TDOA, _ = calc_delay(multich_audio[:, [0, each]], fs)
+        delay_set.append(TDOA)
     return np.array(delay_set)

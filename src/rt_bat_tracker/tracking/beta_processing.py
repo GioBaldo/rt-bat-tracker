@@ -11,6 +11,7 @@ Results are written to SharedState.result_queue via state.put_result().
 Entry point for the processing thread: run(state, cfg)
 """
 
+from dataclasses import dataclass, asdict, field
 import logging
 import queue
 import time
@@ -19,7 +20,11 @@ import numpy as np
 from scipy import signal
 
 from rt_bat_tracker.tracking.localisation_mpr2003 import tristar_mellen_pachter
-from rt_bat_tracker.tracking.common_functions import calc_rms, calc_multich_delays
+from rt_bat_tracker.tracking.common_functions import (
+    calc_rms,
+    calc_multich_delays,
+    calc_delay,
+)
 
 # import librosa
 # from scipy import signal
@@ -32,7 +37,27 @@ logger.setLevel(logging.INFO)
 # Processor class
 # ---------------------------------------------------------------------------
 
+
+@dataclass
+class LocAnalytics:
+    """
+    Data class to hold analytics for localization results.
+    """
+
+    start_time: float = 0.0
+    call_duration: float = 0.0
+    max_rms: float = 0.0
+    significant_channels: list = field(default_factory=list)
+    processing_duration: float = 0.0
+    chunk_size: int = 0
+    cross_correlations: list = field(default_factory=list)
+    channel_pairs: list = field(default_factory=list)
+    TDOA: list = field(default_factory=list)
+    TDOA_sum: float = 0.0
+
+
 ##THREAD ENTRY POINT##
+
 
 def run(state, cfg):
     """
@@ -70,7 +95,10 @@ class AudioProcessor:
         self.channels = cfg.channels
         self.block_size = cfg.blocksize
         self.cfg = cfg
-
+        self.loc_method = "speed_consistency"  # "zero_sum"  "default_mpr"
+        self.max_speed = 5.0  # m/s
+        self.last_valid_loc = None
+        self.last_call_lime = None
         self.blocks_received = 0
         self.max_rms_channel = None
         self.significant_channels = None
@@ -81,7 +109,10 @@ class AudioProcessor:
         block shape: (block_size, channels)
         returns: (channels,) float32
         """
-        rms = np.sqrt(np.mean(block**2, axis=0))
+        sq_sig = block**2
+        peak_idx = np.argmax(sq_sig, axis=0)
+        mean_sq = np.mean(sq_sig, axis=0)
+        rms = np.sqrt(mean_sq)
         max_v = np.max(rms)
         self._state.EMA_rms = self._state.EMA_rms + 0.5 * (max_v - self._state.EMA_rms)
         self.blocks_received += 1
@@ -91,7 +122,7 @@ class AudioProcessor:
         if max_v > self._state.max_rms:
             self._state.max_rms = max_v
             self.max_rms_channel = np.where(rms == max_v)[0][0]
-        return rms, max_v
+        return rms, max_v, peak_idx
 
     def _check_thresholds(self, rms):
         """
@@ -119,28 +150,94 @@ class AudioProcessor:
 
         Extend this method with FFT, TDOA, beamforming, etc.
         """
+
         chunk = self._state.call_chunk.copy()
-        time = self._state.call_time
+        timestamp = self._state.call_time
+        analytics = LocAnalytics(
+            start_time=time.perf_counter_ns(), chunk_size=chunk.shape[0]
+        )
         logger.debug(
             f"Processing call chunk with {chunk.shape} samples, array type: {type(chunk)}, sample type: {type(chunk[0][0])}"
         )
 
-        time_delays = calc_multich_delays(
-            chunk[:, self.significant_channels], self.cfg.fs
-        )
+        ## DIFFERENT LOCALIZATION METHODS ##
+        if self.loc_method == "default_mpr":
 
-        path_diff = time_delays * self.cfg.vsound # Localization compudet on Range Difference! [meters]
-        locations = tristar_mellen_pachter(
-            self._state.micxyz[self.significant_channels], path_diff, self._state.normal_vector
-        )
+            time_delays = calc_multich_delays(
+                chunk[:, self.significant_channels], self.fs
+            )
+
+            path_diff = (
+                time_delays * self.cfg.vsound
+            )  # Localization compudet on Range Difference! [meters]
+            locations = tristar_mellen_pachter(
+                self._state.micxyz[self.significant_channels],
+                path_diff,
+                self._state.normal_vector,
+            )
+
+        elif self.loc_method == "zero_sum":
+            path_diff = []
+            for ch1 in self.significant_channels:
+                for ch2 in self.significant_channels:
+                    if ch1 != ch2:
+                        two_ch = np.column_stack((chunk[:, ch1], chunk[:, ch2]))
+                        TDOA, cc = calc_delay(two_ch, self.fs)
+                        if ch1 == self.significant_channels[0]:
+                            path_diff.append(TDOA * self.cfg.vsound)
+                        analytics.cross_correlations.append(cc)
+                        analytics.channel_pairs.append((ch1, ch2))
+                        analytics.TDOA.append(TDOA)
+
+            path_diff = np.array(path_diff)
+            analytics.TDOA_sum = sum(analytics.TDOA)
+
+            locations = tristar_mellen_pachter(
+                self._state.micxyz[self.significant_channels],
+                path_diff,
+                self._state.normal_vector,
+            )
+            print(f"TDOA_sum: {analytics.TDOA_sum * 1e15:.4f} fs")
+
+        elif self.loc_method == "speed_consistency":
+            time_delays = calc_multich_delays(
+                chunk[:, self.significant_channels], self.fs
+            )
+
+            path_diff = (
+                time_delays * self.cfg.vsound
+            )  # Localization compudet on Range Difference! [meters]
+            locations = tristar_mellen_pachter(
+                self._state.micxyz[self.significant_channels],
+                path_diff,
+                self._state.normal_vector,
+            )
+            if self.last_valid_loc is not None:
+                speed = np.linalg.norm(
+                    np.array(locations) - np.array(self.last_valid_loc)
+                ) / (self._state.call_time - self._state.last_call_time)
+                print(f"Speed: {speed:.2f} m/s")
+                if speed > self.max_speed:
+                    logger.warning(
+                        f"Unrealistic speed detected: {speed:.2f} m/s. Discarding location."
+                    )
+                    locations = None
+
+            if locations is not None and len(locations) > 0:
+                self.last_valid_loc = locations
+                self._state.last_call_time = self._state.call_time
+
         logger.info(
             f"about to push results, max rms = {self._state.max_rms} - locations: {locations} - dtype: {type(chunk[0][0])}"
         )
         if locations is None and len(time_delays) != 0:
             logger.error("ERROR! TRYING TO COMPUTE TDOA WITH THE WRONG MIC LAYOUT")
 
+        analytics.processing_duration = time.perf_counter_ns() - analytics.start_time
+        print(f"Processing duration: {analytics.processing_duration / 1000000:.4f} ms")
+
         if locations is not None:
-            self._state.put_result(locations, time)
+            self._state.put_result(locations, timestamp)
 
         return True
 
@@ -188,12 +285,10 @@ class AudioProcessor:
             self._state.write_wav_buffer(block)
 
             # remove unused channels
-            block = block[:, :self._state.micxyz.shape[0]]
+            block = block[:, : self._state.micxyz.shape[0]]
 
-            rms, max_channel = self._compute_rms(block)
-            logger.debug(
-                f"channel rms: {np.max(rms)} on channel {max_channel} "
-            )
+            rms, max_channel, peak_idx = self._compute_rms(block)
+            logger.debug(f"channel rms: {np.max(rms)} on channel {max_channel} ")
 
             # compares rms values with thresholds to identify active channels
             active_ch = self._check_thresholds(rms)
@@ -234,7 +329,6 @@ class AudioProcessor:
                         )
                         continue
 
- 
                 logger.debug(
                     f"call ended: active channels: {self.significant_channels}, call duration: {timestamp - self._state.call_time:.4f} s, samples stored: {self._state.call_chunk.shape[0]}"
                 )
@@ -248,4 +342,3 @@ class AudioProcessor:
 
         logger.info("AudioProcessor loop stopped")
         return
-

@@ -6,7 +6,7 @@ fs: 192000
 channels: 10
 dtype: "float32"
 default_file: "Event_141.wav"
-default_layout: "triang_metal.csv" # "single_bat_1234.csv"
+default_layout: "adapted_triang.csv" # "single_bat_1234.csv"
 default_device: 1 
 
 # Tunable parameters
