@@ -95,7 +95,7 @@ class AudioProcessor:
         self.channels = cfg.channels
         self.block_size = cfg.blocksize
         self.cfg = cfg
-        self.loc_method = "speed_consistency"  # "zero_sum"  "default_mpr"
+        self.loc_method = state.loc_method
         self.max_speed = 5.0  # m/s
         self.last_valid_loc = None
         self.last_call_lime = None
@@ -161,6 +161,7 @@ class AudioProcessor:
         )
 
         ## DIFFERENT LOCALIZATION METHODS ##
+        # DEFAULT
         if self.loc_method == "default_mpr":
 
             time_delays = calc_multich_delays(
@@ -176,6 +177,7 @@ class AudioProcessor:
                 self._state.normal_vector,
             )
 
+        # ZERO-SUM CHECK
         elif self.loc_method == "zero_sum":
             path_diff = []
             for ch1 in self.significant_channels:
@@ -199,6 +201,7 @@ class AudioProcessor:
             )
             print(f"TDOA_sum: {analytics.TDOA_sum * 1e15:.4f} fs")
 
+        # SPEED CONSISTENCY CHECK
         elif self.loc_method == "speed_consistency":
             time_delays = calc_multich_delays(
                 chunk[:, self.significant_channels], self.fs
@@ -223,7 +226,7 @@ class AudioProcessor:
                     )
                     locations = None
 
-            if locations is not None and len(locations) > 0:
+            if locations is not None and len(locations[0]) == 3:
                 self.last_valid_loc = locations
                 self._state.last_call_time = self._state.call_time
 
@@ -237,7 +240,7 @@ class AudioProcessor:
         print(f"Processing duration: {analytics.processing_duration / 1000000:.4f} ms")
 
         if locations is not None:
-            self._state.put_result(locations, timestamp)
+            self._state.put_result(locations, timestam)
 
         return True
 

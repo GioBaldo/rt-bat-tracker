@@ -17,10 +17,12 @@ class SharedState:
     def __init__(self, cfg):
         self.is_live = True
         self.mute_detector = True
-
+        self.loc_method = cfg.loc_method
         self.audio_queue = queue.Queue(maxsize=cfg.audio_queue_maxsize)
         self.result_queue = queue.Queue(maxsize=cfg.results_queue_maxsize)
-        self.detector_queue = queue.Queue(maxsize=5) #usually only one chunk is passed to play_tone and is suddently palyed
+        self.detector_queue = queue.Queue(
+            maxsize=5
+        )  # usually only one chunk is passed to play_tone and is suddently palyed
         self.threshold = cfg.threshold
 
         self.event_wav_buffer = deque(maxlen=cfg.event_wav_buffer_maxsize)
@@ -54,11 +56,15 @@ class SharedState:
         self.ROTATION_Z = 0
         self.H_DISPLACEMENT = 1
 
-        self.normal_vector = self.rotate_coords(np.array([[0, 0, 1]]), self.ROTATION_X, self.ROTATION_Z, 0) # use n.array([[]]) for a 2Darray in the function
+        self.normal_vector = self.rotate_coords(
+            np.array([[0, 0, 1]]), self.ROTATION_X, self.ROTATION_Z, 0
+        )  # use n.array([[]]) for a 2Darray in the function
 
         logger.info("trying to load micxyz from: %s", cfg.micLayout_path)
         root_xyz = np.loadtxt(cfg.micLayout_path, delimiter=",")
-        self.micxyz = self.rotate_coords(root_xyz, self.ROTATION_X, self.ROTATION_Z, self.H_DISPLACEMENT)
+        self.micxyz = self.rotate_coords(
+            root_xyz, self.ROTATION_X, self.ROTATION_Z, self.H_DISPLACEMENT
+        )
 
         # stats
         self.empty_res_count = 0
@@ -161,19 +167,21 @@ class SharedState:
             logger.warning("Full detector queue, dropped data")
 
     def get_resampled_detector_data(self):
-        """ Collects data from the detector queue, and upsamples by a factor o 4 so that the tone_layer palys the chunk downpitched by 4. Returns None if the queue is empty or if stop_event is set. """
+        """Collects data from the detector queue, and upsamples by a factor o 4 so that the tone_layer palys the chunk downpitched by 4. Returns None if the queue is empty or if stop_event is set."""
 
         if self.stop_event.is_set():
             return None
         try:
             data = self.detector_queue.get(block=False)
-            resampled_data = signal.resample(data, up = 4)
-            logger.warning(f"returning resampled detector data length: {len(resampled_data)}")
+            resampled_data = signal.resample(data, up=4)
+            logger.warning(
+                f"returning resampled detector data length: {len(resampled_data)}"
+            )
             return resampled_data
         except queue.Empty:
             logger.debug("Empty detector queue, returning None")
             return None
-            
+
     def rotate_coords(self, root_xyz, rotation_x_deg, rotation_z_deg, h_displacement):
         """
         Rotates the microphone coordinates around the X and Z axes and translates them along the Z axis.
@@ -181,22 +189,26 @@ class SharedState:
         rad_x = np.radians(rotation_x_deg)
         rad_z = np.radians(rotation_z_deg)
 
-        Rx = np.array([
-            [1,           0,            0],
-            [0, np.cos(rad_x), -np.sin(rad_x)],
-            [0, np.sin(rad_x),  np.cos(rad_x)]
-        ])
+        Rx = np.array(
+            [
+                [1, 0, 0],
+                [0, np.cos(rad_x), -np.sin(rad_x)],
+                [0, np.sin(rad_x), np.cos(rad_x)],
+            ]
+        )
 
-        Rz = np.array([
-            [np.cos(rad_z), -np.sin(rad_z), 0],
-            [np.sin(rad_z),  np.cos(rad_z), 0],
-            [0,              0,             1]
-        ])
+        Rz = np.array(
+            [
+                [np.cos(rad_z), -np.sin(rad_z), 0],
+                [np.sin(rad_z), np.cos(rad_z), 0],
+                [0, 0, 1],
+            ]
+        )
 
         # Combine the rotation matrices
         R_total = Rx @ Rz
 
-        #Matrix multiplication to rotate the coordinates
+        # Matrix multiplication to rotate the coordinates
         rotated_xyz = root_xyz @ R_total.T
 
         # translation along the Z axis (height displacement)

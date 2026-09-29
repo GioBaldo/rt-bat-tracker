@@ -1,12 +1,13 @@
 mode: "audiofile" # "alsa", "portAudio" , "audiofile"
 SAVE_RESULTS: False
+loc_method: "zero_sum"  # "zero_sum"  "default_mpr" "speed_consistency"
 
 blocksize: 1024
 fs: 192000
 channels: 10
 dtype: "float32"
-default_file: "Event_141.wav"
-default_layout: "adapted_triang.csv" # "single_bat_1234.csv"
+default_file: "Event_141_long.wav" # "single_bat_1234.wav" "Event_141.wav"
+default_layout: "adapted_triang.csv" # "adapted_triang.csv"  "single_bat_1234.csv"
 default_device: 1 
 
 # Tunable parameters
@@ -37,7 +38,7 @@ buffer_length: 10
 
 # FFT prameters
 WINDOW_SIZE: 256
-HOP_SIZE: 256
+HOP_SIZE: 128
 FREQUENCY_SCALE: "log" # linear, mel
 FREQUENCY_RANGE: [5000, 90000]
 TIME_AXIS: 1 #seconds displayed
