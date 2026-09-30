@@ -17,7 +17,9 @@ def calc_rms(in_sig):
 def calc_delay(two_ch, fs=192000):
 
     cc = np.correlate(two_ch[:, 1], two_ch[:, 0], "same")
-    midpoint = cc.size / 2.0
+    midpoint = (
+        cc.size // 2
+    )  # integer division to find the exact center of the array, ensuring that delay(1,2) = -delay(2,1)
     delay = np.argmax(cc) - midpoint
     delay *= 1 / float(fs)
 
