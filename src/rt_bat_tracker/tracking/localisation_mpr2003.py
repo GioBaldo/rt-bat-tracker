@@ -24,6 +24,10 @@ Reference
 
 import numpy as np
 import scipy.spatial as spatial
+import logging
+
+logger = logging.getLogger("MPR")
+logger.setLevel(logging.INFO)
 
 
 # def tristar_mellen_pachter(mic_array, di, normal_vector):
@@ -46,6 +50,7 @@ import scipy.spatial as spatial
 #             infront_of_array.append(sources)
 #     return infront_of_array
 
+
 def tristar_mellen_pachter(mic_array, di, normal_vector):
     """Wrapper around mellen_pachter_raquet_2003
     which only outputs positive y/z axis sources.
@@ -61,7 +66,9 @@ def tristar_mellen_pachter(mic_array, di, normal_vector):
     valid_mask = (dot_products >= 0) & (sources[:, 2] >= 0)
 
     valid_sources = sources[valid_mask]
-
+    logger.debug(
+        f"Sources before filtering: {sources}, sources.shape: {sources.shape}, "
+    )
     return list(valid_sources)
 
 

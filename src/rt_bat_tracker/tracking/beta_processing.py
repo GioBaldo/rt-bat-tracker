@@ -20,6 +20,7 @@ import numpy as np
 from scipy import signal
 
 from rt_bat_tracker.tracking.localisation_mpr2003 import tristar_mellen_pachter
+from rt_bat_tracker.tracking.zero_sum_localisation import ZeroSumLocalizer
 from rt_bat_tracker.tracking.common_functions import (
     calc_rms,
     calc_multich_delays,
@@ -99,6 +100,7 @@ class AudioProcessor:
         self.max_speed = 5.0  # m/s
         self.last_valid_loc = None
         self.last_call_lime = None
+        self.localizer = ZeroSumLocalizer(cfg=self.cfg)
         self.blocks_received = 0
         self.max_rms_channel = None
         self.significant_channels = None
@@ -179,27 +181,20 @@ class AudioProcessor:
 
         # ZERO-SUM CHECK
         elif self.loc_method == "zero_sum":
-            path_diff = []
-            for ch1 in self.significant_channels:
-                for ch2 in self.significant_channels:
-                    if ch1 != ch2:
-                        two_ch = np.column_stack((chunk[:, ch1], chunk[:, ch2]))
-                        TDOA, cc = calc_delay(two_ch, self.fs)
-                        if ch1 == self.significant_channels[0]:
-                            path_diff.append(TDOA * self.cfg.vsound)
-                        analytics.cross_correlations.append(cc)
-                        analytics.channel_pairs.append((ch1, ch2))
-                        analytics.TDOA.append(TDOA)
-
-            path_diff = np.array(path_diff)
-            analytics.TDOA_sum = sum(analytics.TDOA)
-
+            path_diff, selected_mics, analytics = self.localizer.get_zerosum_delays(
+                chunk=chunk,
+                fs=self.fs,
+                ch_to_keep=5,
+                significant_channels=range(self.significant_channels.size),
+            )
+            logger.debug(
+                f"passing to MPR with path_diff: {path_diff}, selected_mics: {selected_mics}, normal_vector: {self._state.normal_vector}"
+            )
             locations = tristar_mellen_pachter(
-                self._state.micxyz[self.significant_channels],
+                self._state.micxyz[selected_mics],
                 path_diff,
                 self._state.normal_vector,
             )
-            print(f"TDOA_sum: {analytics.TDOA_sum * 1e15:.4f} fs")
 
         # SPEED CONSISTENCY CHECK
         elif self.loc_method == "speed_consistency":
@@ -240,7 +235,7 @@ class AudioProcessor:
         print(f"Processing duration: {analytics.processing_duration / 1000000:.4f} ms")
 
         if locations is not None:
-            self._state.put_result(locations, timestam)
+            self._state.put_result(locations, timestamp)
 
         return True
 
