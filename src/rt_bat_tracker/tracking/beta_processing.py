@@ -30,7 +30,7 @@ from rt_bat_tracker.tracking.common_functions import (
 # import librosa
 # from scipy import signal
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("PROC")
 logger.setLevel(logging.INFO)
 
 
@@ -184,12 +184,10 @@ class AudioProcessor:
             path_diff, selected_mics, analytics = self.localizer.get_zerosum_delays(
                 chunk=chunk,
                 fs=self.fs,
-                ch_to_keep=5,
-                significant_channels=range(self.significant_channels.size),
+                ch_to_keep=6,
+                significant_channels=self.significant_channels.tolist(),
             )
-            logger.debug(
-                f"passing to MPR with path_diff: {path_diff}, selected_mics: {selected_mics}, normal_vector: {self._state.normal_vector}"
-            )
+
             locations = tristar_mellen_pachter(
                 self._state.micxyz[selected_mics],
                 path_diff,
@@ -221,7 +219,7 @@ class AudioProcessor:
                     )
                     locations = None
 
-            if locations is not None and len(locations[0]) == 3:
+            if locations is not None and len(locations) > 0:
                 self.last_valid_loc = locations
                 self._state.last_call_time = self._state.call_time
 
@@ -277,7 +275,6 @@ class AudioProcessor:
 
             # highpassfilter to remove useless low end
             block = self._highpass_filter(block)
-            # here data are implicitly converted from np.float32 to np.float64
 
             # put HP block in the event audio queue for later saving (all channels)
             self._state.write_wav_buffer(block)
@@ -286,7 +283,6 @@ class AudioProcessor:
             block = block[:, : self._state.micxyz.shape[0]]
 
             rms, max_channel, peak_idx = self._compute_rms(block)
-            logger.debug(f"channel rms: {np.max(rms)} on channel {max_channel} ")
 
             # compares rms values with thresholds to identify active channels
             active_ch = self._check_thresholds(rms)
@@ -319,8 +315,8 @@ class AudioProcessor:
                         self.significant_channels = np.union1d(
                             self.significant_channels, chs
                         )
-                        logger.debug(
-                            "Call updated at %.3f s — significant channels: %s - added channels: %s",
+                        logger.info(
+                            "Call updated at %.3f s — significant channels: %s - active channels: %s",
                             timestamp,
                             self.significant_channels,
                             chs,
@@ -331,7 +327,7 @@ class AudioProcessor:
                     f"call ended: active channels: {self.significant_channels}, call duration: {timestamp - self._state.call_time:.4f} s, samples stored: {self._state.call_chunk.shape[0]}"
                 )
 
-                print(f"significant channels: {self.significant_channels}")
+                logger.info(f"significant channels: {self.significant_channels}")
                 if self.significant_channels.size > 3:
                     self.process()
 

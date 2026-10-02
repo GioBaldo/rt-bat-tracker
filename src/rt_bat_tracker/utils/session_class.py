@@ -7,7 +7,7 @@ from pathlib import Path
 import csv
 import json
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("SESSION")
 logger.setLevel(logging.DEBUG)
 
 
@@ -90,9 +90,7 @@ class Session:
             ap_colors = []
             all_times = []
             for p in this_event.points:
-                age = (
-                    time.monotonic() - p.rel_ts - this_event.start_time
-                ) 
+                age = time.monotonic() - p.rel_ts - this_event.start_time
                 if age > 0:
                     op = (
                         max(0, 1 - age / self._state.fade_time)
@@ -137,22 +135,27 @@ class Session:
         logger.debug(f"writing audiofile to active event {self.active_event} ")
         if self.active_event is not None:
             data = self._state.grab_wav_buffer()
+            if data is not None:
+                logger.debug(
+                    f"about to append data: ({np.shape(data)[0]}) [{type(data)}] to the audio_file: [{np.shape(self.active_event.audio_file)}]"
+                )
+                self.update_spectrogram(data, 0)  # performing spectrogram on ch 0 only
 
-            logger.debug(
-                f"about to append data: ({np.shape(data)[0]}) [{type(data)}] to the audio_file: [{np.shape(self.active_event.audio_file)}]"
-            )
-            self.update_spectrogram(data, 0)  # performing spectrogram on ch 0 only
-
-            for i in range(np.shape(data)[0]):
-                self.active_event.audio_file.append(data[i])
+                for i in range(np.shape(data)[0]):
+                    self.active_event.audio_file.append(data[i])
 
     def update_spectrogram(self, data, ch):
         """
         perform fft on one channel and save the (samples, bins) np.array of np.float16 in the event spectrogram
         """
+        data = np.atleast_3d(data)  # substituted to np.array(data)
+        if data.shape[1] < self._cfg.WINDOW_SIZE:
+            logger.warning(
+                f"Not enough data to perform FFT: {data.shape[1]} samples, required: {self._cfg.WINDOW_SIZE}. Skipping FFT update."
+            )
+            return
         taim = time.perf_counter_ns()
-        data = np.array(data)
-        signal = data[:, :, 4].reshape(-1) #substitute with ch
+        signal = data[:, :, 1].reshape(-1)  # substitute with ch
         NFFT = self._cfg.WINDOW_SIZE
         HOP = self._cfg.HOP_SIZE
         window = np.hanning(NFFT)
@@ -163,7 +166,7 @@ class Session:
             frame = signal[start : start + NFFT]
             frame = frame * window
             spectrum = np.fft.rfft(frame)
-            magnitude = np.abs(spectrum*100.0).astype(np.float16)
+            magnitude = np.abs(spectrum * 100.0).astype(np.float16)
             # magnitude_db = 20 * np.log10(magnitude, 1e-12)
             self.active_event.spectrogram.append(magnitude)
         logger.debug(
@@ -180,7 +183,7 @@ class Session:
             active_points = []
             ap_colors = []
             for p in this_event.points:
-                age = (playback_time - p.rel_ts) 
+                age = playback_time - p.rel_ts
                 if age > 0:
                     op = (
                         max(0, 1 - age / self._state.fade_time)
@@ -190,7 +193,7 @@ class Session:
                     p.color = np.append(self._state.tail_color, op)
                     active_points.append(p.pos)
                     ap_colors.append(p.color)
-            
+
             return active_points, ap_colors
         else:
             return None, None, None
@@ -206,8 +209,12 @@ class Session:
             frame_idx = min(frame_idx, len(event.spectrogram))
             data_frames = min(num_frames, frame_idx)
             array = np.zeros((bins, num_frames), dtype=np.uint8)
-            logger.debug(f"Array shape: {array.shape}, spectrogram length: {len(event.spectrogram)}, {len(event.spectrogram[0])}")
-            raw_data = np.array(event.spectrogram[frame_idx - data_frames:frame_idx], dtype=np.float16)
+            logger.debug(
+                f"Array shape: {array.shape}, spectrogram length: {len(event.spectrogram)}, {len(event.spectrogram[0])}"
+            )
+            raw_data = np.array(
+                event.spectrogram[frame_idx - data_frames : frame_idx], dtype=np.float16
+            )
             data = np.clip(raw_data, 0, 255).astype(np.uint8)
             array[:, :data_frames] = data.T
             return array
@@ -261,25 +268,25 @@ class Session:
 
         ## SAVING METADATA ##
         manifest_path = self.session_path / "session_manifest.json"
-        
-        #initialize manifest in case it doesnt exist yet
-        manifest = {
-            "session_name": self.session_name,
-            "events": []}
 
-        #if the manifest exist loads the existing one
+        # initialize manifest in case it doesnt exist yet
+        manifest = {"session_name": self.session_name, "events": []}
+
+        # if the manifest exist loads the existing one
         if manifest_path.exists():
             with open(manifest_path, mode="r", encoding="utf-8") as manifest_file:
                 manifest = json.load(manifest_file)
             manifest["session_name"] = self.session_name
 
-        #creates the event record to be saved in the manifest
+        # creates the event record to be saved in the manifest
         event_record = {
             "event_name": target_event.event_name,
             "event_folder": event_stem,
             "start_time_adc": float(target_event.start_time_adc),
             "duration": (
-                float(target_event.duration) if target_event.duration is not None else None
+                float(target_event.duration)
+                if target_event.duration is not None
+                else None
             ),
             "points_file": points_filename,
             "spectrogram_file": spectrogram_filename,
@@ -288,14 +295,16 @@ class Session:
             "spectrogram_frames": len(target_event.spectrogram),
         }
 
-        #updates the manifest by removing any existing (shouldn't exixt) record for the same event name and appending the new record
+        # updates the manifest by removing any existing (shouldn't exixt) record for the same event name and appending the new record
         manifest["events"] = [
-            e for e in manifest.get("events", []) if e.get("event_name") != target_event.event_name
+            e
+            for e in manifest.get("events", [])
+            if e.get("event_name") != target_event.event_name
         ]
         manifest["events"].append(event_record)
 
         with open(manifest_path, mode="w", encoding="utf-8") as manifest_file:
-            json.dump(manifest, manifest_file, indent=2)    
+            json.dump(manifest, manifest_file, indent=2)
 
     def get_recall_session_list(self):
         """
@@ -307,7 +316,7 @@ class Session:
             if session_dir.is_dir():
                 sessions.append(session_dir.name)
         return sorted(sessions)
-        
+
     def get_recall_event_list(self, session_name):
         """
         Load events from disk and return a list of Event objects.
@@ -321,7 +330,7 @@ class Session:
 
         with open(manifest_path, mode="r", encoding="utf-8") as manifest_file:
             manifest = json.load(manifest_file)
-        
+
         for event_index, event_data in enumerate(manifest.get("events", [])):
             event_name = event_data["event_name"]
             event_folder = event_data["event_folder"]
@@ -331,7 +340,7 @@ class Session:
             event.duration = event_data.get("duration")
             event.last_call_time = time.monotonic()
 
-            #load points and add to event
+            # load points and add to event
             points_path = session_path / event_folder / event_data["points_file"]
             with open(points_path, mode="r", newline="", encoding="utf-8") as csv_file:
                 reader = csv.DictReader(csv_file)
@@ -344,11 +353,15 @@ class Session:
                     event.add_point(pos, abs_ts)
                     event.points[-1].rel_ts = float(row["rel_ts"])
 
-            #load spectrogram        
-            spectrogram_path = session_path / event_folder / event_data["spectrogram_file"]
+            # load spectrogram
+            spectrogram_path = (
+                session_path / event_folder / event_data["spectrogram_file"]
+            )
             if spectrogram_path.exists():
                 event.spectrogram = np.load(spectrogram_path).tolist()
             event_list.append(event)
-            logger.info(f"Loaded event: {event_name} with {len(event.points)} points and {len(event.spectrogram)} spectrogram frames.")
+            logger.info(
+                f"Loaded event: {event_name} with {len(event.points)} points and {len(event.spectrogram)} spectrogram frames."
+            )
 
         return event_list

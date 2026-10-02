@@ -8,7 +8,7 @@ import numpy as np
 from scipy import signal
 from collections import deque
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("STATE")
 logger.setLevel(logging.INFO)
 
 
@@ -24,6 +24,7 @@ class SharedState:
             maxsize=5
         )  # usually only one chunk is passed to play_tone and is suddently palyed
         self.threshold = cfg.threshold
+        self.blocksize = cfg.blocksize
 
         self.event_wav_buffer = deque(maxlen=cfg.event_wav_buffer_maxsize)
         self.buffer_lock = threading.Lock()
@@ -86,11 +87,13 @@ class SharedState:
     def put_audio(self, audio_block, timestamp=None):
         try:
             self.audio_queue.put_nowait((audio_block, timestamp))
+            logger.debug(f"audio queue size: {self.audio_queue.qsize()}")
         except queue.Full:
             self.dropped_audio += 1
             logger.info(
                 "Full audio queue, dropped audio blocks: %d", self.dropped_audio
             )
+            self.stop()  ## JUST FOR DEBUGGING, REMOVE LATER!!!
 
     def get_audio(self, timeout=0.1):
         try:
@@ -109,7 +112,7 @@ class SharedState:
                 "Full results queue, dropped results: %d", self.dropped_results
             )
 
-    def get_result(self, timeout=0.1):
+    def get_result(self, timeout=0.001):
         if self.stop_event.is_set():
             return None, None
         try:
@@ -126,7 +129,7 @@ class SharedState:
                 return np.array([res[0], res[1], res[2]]), timestamp
 
         except queue.Empty:
-            logger.debug("Empty results queue, timeout after %.1f s", timeout)
+            logger.debug("Empty results queue, timeout after %.3f s", timeout)
             return None, None
 
     # Wav buffer functions
@@ -148,9 +151,15 @@ class SharedState:
         as <list> of elements [blocksize, channels]
         """
         with self.buffer_lock:
-            items = list(self.event_wav_buffer)
-            self.event_wav_buffer.clear()
-        return items
+            if len(self.event_wav_buffer) > 0:
+                items = list(self.event_wav_buffer)
+                self.event_wav_buffer.clear()
+                return items
+            else:
+                logger.warning(
+                    f"Not enough data in wav_buffer to grab: {len(self.event_wav_buffer)} samples. Returning None."
+                )
+                return None
 
     # Detector queue functions
     def put_raw_for_detector(self, data):

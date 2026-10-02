@@ -51,22 +51,29 @@ projPaths = get_project_paths()
 
 # set up logging
 # main.py
-logger = logging.getLogger()  # no name = root
-logger.setLevel(logging.DEBUG)
+root_logger = logging.getLogger()  # no name = root
+root_logger.setLevel(logging.DEBUG)
 
 stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setLevel(logging.DEBUG)
-stream_handler.setFormatter(
-    logging.Formatter("%(threadName)s - %(levelname)s - %(name)s - %(message)s")
-)
+stream_handler.setFormatter(logging.Formatter("%(name)s - %(levelname)s - %(message)s"))
 
+if not root_logger.handlers:
+    root_logger.addHandler(stream_handler)
 
-# file_handler = logging.FileHandler(projPaths.results_dir / "app.log")
-# file_handler.setLevel(logging.DEBUG)
-# file_handler.setFormatter(JsonFormatter())
+logger = logging.getLogger("MAIN")
+logger.setLevel(logging.WARNING)
 
-logger.addHandler(stream_handler)
-# logger.addHandler(file_handler)
+logging.getLogger("SESSION").setLevel(logging.WARNING)  # INFO , DEBUG, WARNING, ERROR
+logging.getLogger("GUI").setLevel(logging.WARNING)
+logging.getLogger("PROC").setLevel(logging.INFO)
+logging.getLogger("MPR").setLevel(logging.INFO)
+logging.getLogger("STATE").setLevel(logging.DEBUG)
+logging.getLogger("AUDIO").setLevel(logging.INFO)
+logging.getLogger("LOC").setLevel(logging.INFO)
+
+logging.getLogger("matplotlib").setLevel(logging.WARNING)
+logging.getLogger("PyQt5").setLevel(logging.WARNING)
 
 # ----------------------------------------------------------------------------
 # Main function

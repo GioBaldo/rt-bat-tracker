@@ -141,10 +141,12 @@ class ZeroSumLocalizer:
             significant_channels=significant_channels,
         )
 
-        logger.debug(f"Processing call chunk with shape {chunk.shape}, fs={fs}")
+        logger.debug(
+            f"Processing call chunk with shape {chunk.shape}, fs={fs}, significant_channels={significant_channels}"
+        )
 
         for ch1 in significant_channels:
-            for ch2 in significant_channels[ch1 + 1 :]:
+            for ch2 in significant_channels[ch1:]:
 
                 two_ch = np.column_stack((chunk[:, ch1], chunk[:, ch2]))
                 tdoa, cc = calc_delay(two_ch, fs)
@@ -195,7 +197,7 @@ class ZeroSumLocalizer:
                     idx12 = pairs_vec.index(pair12)
                     tdoa12 = tdoa_vec[idx12]
                 except ValueError:
-                    logger.error(f"Pair {pair12} not found in pairs_vec. Skipping.")
+                    logger.warning(f"Pair12 {pair12} not found in pairs_vec. Skipping.")
                     continue
 
                 for idx3 in range(idx2 + 1, n_channels):
@@ -224,9 +226,12 @@ class ZeroSumLocalizer:
                     cc_errors[idx13] += error
 
         best_idx = np.argsort(mic_errors.flatten())[:keep]
-        selected_mics = np.unique(
-            np.array(np.unravel_index(best_idx, mic_errors.shape)).flatten()
-        )
+        # selected_mics = np.unique(
+        #     np.array(np.unravel_index(best_idx, mic_errors.shape)).flatten()
+        # )
+        selected_mics = np.sort(np.array(channels)[best_idx])
+
+        logger.debug(f"Selected microphones after zero-sum validation: {selected_mics}")
 
         path_diff = []
 
@@ -244,7 +249,7 @@ class ZeroSumLocalizer:
                 )
             else:
                 logger.warning(
-                    f"Pair {pair} not found in pairs_vec during TDOA sum calculation."
+                    f"Pair ({ch1},{ch2}) not found in pairs_vec during TDOA sum calculation."
                 )
 
         loop_pair = (selected_mics[0], selected_mics[-1])

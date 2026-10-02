@@ -1,12 +1,12 @@
 mode: "audiofile" # "alsa", "portAudio" , "audiofile"
 SAVE_RESULTS: False
-loc_method: "zero_sum"  # "zero_sum"  "default_mpr" "speed_consistency"
+loc_method: "default_mpr"  # "zero_sum"  "default_mpr" "speed_consistency"
 
-blocksize: 1024
+blocksize: 2048
 fs: 192000
 channels: 10
 dtype: "float32"
-default_file: "Event_141_long.wav" # "single_bat_1234.wav" "Event_141.wav"
+default_file: "Event_141.wav" # "single_bat_1234.wav" "Event_141.wav"
 default_layout: "adapted_triang.csv" # "adapted_triang.csv"  "single_bat_1234.csv"
 default_device: 1 
 
@@ -17,14 +17,14 @@ event_time: 15
 
 # Source detection parameters
 vsound: 340
-threshold: 0.03
+threshold: 0.02
 
 # Butterworth highpass filter parameters
 filter_order: 1
 cutoff_freq: 20000
 
 # Queue parameters - adjust if some chunks are being dropped
-audio_queue_maxsize: 40
+audio_queue_maxsize: 1000
 results_queue_maxsize: 20
 event_wav_buffer_maxsize: 50 # .25 sec at 1024 blocksize. (pre-record)
 

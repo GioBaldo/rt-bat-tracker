@@ -55,6 +55,10 @@ def tristar_mellen_pachter(mic_array, di, normal_vector):
     """Wrapper around mellen_pachter_raquet_2003
     which only outputs positive y/z axis sources.
     """
+    logger.debug(
+        f"tristar_mellen_pachter called with mic_array: {mic_array}, di: {di}, normal_vector: {normal_vector}"
+    )
+
     sources = np.atleast_2d(mellen_pachter_raquet_2003(mic_array, di))
 
     if sources.size == 0 or sources.shape[1] != 3:

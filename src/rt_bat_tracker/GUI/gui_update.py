@@ -8,7 +8,7 @@ import sys
 import time
 import logging
 
-logger = logging.getLogger("GUIUPDATE")
+logger = logging.getLogger("GUI")
 logger.setLevel(logging.INFO)
 
 
