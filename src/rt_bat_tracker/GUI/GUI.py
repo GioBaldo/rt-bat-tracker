@@ -90,7 +90,7 @@ class MainWindow(QMainWindow):
 
     def _update(self):
         if self._state.stop_event.isSet():
-            self._session.update(None, None)
+            self._session.update(None, None, None)
             self.stop()
             return
         if not self._state.gui_running_flag:
@@ -209,9 +209,9 @@ class MainWindow(QMainWindow):
         path_viewer.setCameraPosition(distance=20, azimuth=120, elevation=0.5)
 
     def _update_path_viewer(self):
-        pos, timestamp = self._state.get_result()
+        pos, timestamp, analytics = self._state.get_result()
         logger.debug(f"GUI received this point: {pos} [timestamp: {timestamp}]")
-        self._session.update(pos, timestamp)
+        self._session.update(pos, timestamp, analytics)
         points, colors, all_times = self._session.read_event(self._session.active_event)
 
         points = np.asarray(points, dtype=np.float32)

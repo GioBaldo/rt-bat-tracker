@@ -72,7 +72,7 @@ def load_mic_layout(filepath: Path) -> tuple[np.ndarray, np.ndarray]:
 
 @dataclass
 class Config:
-    vsound: float = 343.0  # Velocità del suono in m/s
+    vsound: float = 340.0  # Velocità del suono in m/s
 
     filter_order: int = 4
     cutoff_freq: float = 1000.0
@@ -145,8 +145,12 @@ class ZeroSumLocalizer:
             f"Processing call chunk with shape {chunk.shape}, fs={fs}, significant_channels={significant_channels}"
         )
 
-        for ch1 in significant_channels:
-            for ch2 in significant_channels[ch1:]:
+        n_channels = len(significant_channels)
+
+        for idx1 in range(n_channels):
+            ch1 = significant_channels[idx1]
+            for idx2 in range(idx1 + 1, n_channels):
+                ch2 = significant_channels[idx2]
 
                 two_ch = np.column_stack((chunk[:, ch1], chunk[:, ch2]))
                 tdoa, cc = calc_delay(two_ch, fs)
@@ -240,13 +244,20 @@ class ZeroSumLocalizer:
             ch1 = selected_mics[idx1]
             ch2 = selected_mics[idx1 + 1]
             pair = (ch1, ch2)
+
+            abs_pair = (selected_mics[0], ch2)  # Pair from first to current mic
+
+            if abs_pair in pairs_vec:
+                abs_TDOA = tdoa_vec[pairs_vec.index(abs_pair)]
+                path_diff.append(abs_TDOA * self.cfg.vsound)
+            else:
+                logger.warning(
+                    f"Pair ({abs_pair[0]},{abs_pair[1]}) not found in pairs_vec during TDOA sum calculation."
+                )
+
             if pair in pairs_vec:
                 TDOA = tdoa_vec[pairs_vec.index(pair)]
                 TDOA_sum += TDOA
-                path_diff.append(TDOA * self.cfg.vsound)
-                logger.debug(
-                    f"Adding TDOA for pair ({pair[0]},{pair[1]}): {tdoa_vec[pairs_vec.index(pair)]*1e6:.6f} μs"
-                )
             else:
                 logger.warning(
                     f"Pair ({ch1},{ch2}) not found in pairs_vec during TDOA sum calculation."

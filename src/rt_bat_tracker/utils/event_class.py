@@ -22,7 +22,7 @@ class Event:
         self.audio_file = []
         self.spectrogram = []
 
-    def add_point(self, pos, timestamp):
+    def add_point(self, pos, timestamp, analytics):
         rel_ts = timestamp - self.start_time_adc
         p = Point(pos, timestamp, rel_ts)
         self.points.append(p)

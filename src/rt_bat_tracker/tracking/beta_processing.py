@@ -233,7 +233,7 @@ class AudioProcessor:
         print(f"Processing duration: {analytics.processing_duration / 1000000:.4f} ms")
 
         if locations is not None:
-            self._state.put_result(locations, timestamp)
+            self._state.put_result(locations, timestamp, analytics)
 
         return True
 

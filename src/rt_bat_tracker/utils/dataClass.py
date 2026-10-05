@@ -103,9 +103,9 @@ class SharedState:
             return None, None
 
     # Results queue functions
-    def put_result(self, result, timestamp=None):
+    def put_result(self, result, timestamp=None, analytics=None):
         try:
-            self.result_queue.put_nowait((result, timestamp))
+            self.result_queue.put_nowait((result, timestamp, analytics))
         except queue.Full:
             self.dropped_results += 1
             logger.debug(
@@ -114,23 +114,23 @@ class SharedState:
 
     def get_result(self, timeout=0.001):
         if self.stop_event.is_set():
-            return None, None
+            return None, None, None
         try:
-            result, timestamp = self.result_queue.get(timeout=timeout)
+            result, timestamp, analytics = self.result_queue.get(timeout=timeout)
 
             if timestamp is None:
-                return None, None
+                return None, None, None
 
             elif len(result) < 1:
                 self.empty_res_count += 1
-                return None, None
+                return None, None, None
             else:
                 res = result[0]
-                return np.array([res[0], res[1], res[2]]), timestamp
+                return np.array([res[0], res[1], res[2]]), timestamp, analytics
 
         except queue.Empty:
             logger.debug("Empty results queue, timeout after %.3f s", timeout)
-            return None, None
+            return None, None, None
 
     # Wav buffer functions
     def write_wav_buffer(self, block):

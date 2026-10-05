@@ -68,9 +68,9 @@ logging.getLogger("SESSION").setLevel(logging.WARNING)  # INFO , DEBUG, WARNING,
 logging.getLogger("GUI").setLevel(logging.WARNING)
 logging.getLogger("PROC").setLevel(logging.INFO)
 logging.getLogger("MPR").setLevel(logging.INFO)
-logging.getLogger("STATE").setLevel(logging.DEBUG)
+logging.getLogger("STATE").setLevel(logging.INFO)
 logging.getLogger("AUDIO").setLevel(logging.INFO)
-logging.getLogger("LOC").setLevel(logging.INFO)
+logging.getLogger("LOC").setLevel(logging.DEBUG)
 
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
 logging.getLogger("PyQt5").setLevel(logging.WARNING)

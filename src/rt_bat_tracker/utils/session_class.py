@@ -41,7 +41,7 @@ class Session:
         self._state.empty_res_count = 0
         return self.active_event
 
-    def update(self, pos, timestamp):
+    def update(self, pos, timestamp, analytics):
         """handles session update:
         if there is no active event creates one
         if the active event is on for more than the max_event_time given replaces it with a new one
@@ -50,6 +50,7 @@ class Session:
         Args:
             pos (new point position or None): already validated results [x,y,z] or None
             timestamp (adc timestamp): adc synchronized timestamp
+            analytics (dict): additional analytics data
         """
         logger.debug(f"results positions is passed to the session as: {pos}")
         if pos is None:
@@ -73,7 +74,7 @@ class Session:
                     self.new_event(timestamp)
 
             # add the new point to the active event
-            self.active_event.add_point(pos, timestamp)
+            self.active_event.add_point(pos, timestamp, analytics)
             logger.info(
                 f"Point added to {self.active_event.event_name}, points stored: {len(self.active_event.points)}"
             )
