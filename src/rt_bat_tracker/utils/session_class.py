@@ -1,4 +1,5 @@
 from rt_bat_tracker.utils.event_class import Event
+from rt_bat_tracker.utils.analytics_plots import plot_cross_correlations
 import time
 import logging
 import numpy as np
@@ -98,8 +99,8 @@ class Session:
                         if self._state.fade
                         else 1
                     )
-                    p.color = np.append(self._state.tail_color, op)
-
+                    col = [p.score, 127 - p.score, 0, op]
+                    p.color = col
                     active_points.append(p.pos)
                     ap_colors.append(p.color)
 
@@ -122,7 +123,7 @@ class Session:
             logger.info(f"killing event: {self.active_event.event_name}")
             self.active_event.terminate_event()
             if self._state.SAVE_RESULTS:
-                self._save_event(self.active_event)
+                self._save_event(self.active_event, self._cfg.SAVE_ANALYTICS)
             self.active_event = None
         else:
             logger.info("No active events to be killed")
@@ -135,14 +136,18 @@ class Session:
         """
         logger.debug(f"writing audiofile to active event {self.active_event} ")
         if self.active_event is not None:
-            data = self._state.grab_wav_buffer()
+            data, timestamp = self._state.grab_wav_buffer()
             if data is not None:
                 logger.debug(
                     f"about to append data: ({np.shape(data)[0]}) [{type(data)}] to the audio_file: [{np.shape(self.active_event.audio_file)}]"
                 )
+                if self.active_event.audio_fist_timestamp is None:
+                    self.active_event.audio_fist_timestamp = timestamp[0]
+
                 self.update_spectrogram(data, 0)  # performing spectrogram on ch 0 only
 
                 for i in range(np.shape(data)[0]):
+
                     self.active_event.audio_file.append(data[i])
 
     def update_spectrogram(self, data, ch):
@@ -176,7 +181,7 @@ class Session:
 
     def read_points_for_playback(self, this_event, playback_time):
         """
-        Given the event and the time in seconds this fucntion returns the points of the event before the playback_time
+        Given the event and the time in seconds this fucntion returns the points of the event according to the playback_time
         """
         if (
             this_event is not None
@@ -222,7 +227,7 @@ class Session:
         else:
             return np.array([])
 
-    def _save_event(self, target_event):
+    def _save_event(self, target_event, save_analytics=False):
         """
         Save one event data to disk:
         - WAV audio file
@@ -250,17 +255,94 @@ class Session:
 
         with open(points_path, mode="w", newline="", encoding="utf-8") as csv_file:
             writer = csv.writer(csv_file)
-            writer.writerow(["abs_ts", "rel_ts", "x", "y", "z"])
+            writer.writerow(["point_idx", "abs_ts", "rel_ts", "x", "y", "z", "score"])
             for p in target_event.points:
                 writer.writerow(
                     [
+                        p.idx,
                         float(p.abs_ts),
                         float(p.rel_ts),
                         float(p.pos[0]),
                         float(p.pos[1]),
                         float(p.pos[2]),
+                        float(p.score),
                     ]
                 )
+
+        ## SAVING ANALYTICS ##
+        if save_analytics:
+            analytics_fields = [
+                "start_time",
+                "chunk_size",
+                "TDOA_sum",
+                "cc_duration",
+                "validation_duration",
+                "loc_duration",
+                "processing_duration",
+            ]
+            analytics_path = self.event_path / f"{event_stem}.analytics.csv"
+            plots_dir = self.event_path / "cc_plots"
+
+            with open(
+                analytics_path, mode="w", newline="", encoding="utf-8"
+            ) as csv_file:
+                writer = csv.writer(csv_file)
+                writer.writerow(
+                    ["point_idx", "rel_ts", "score"]
+                    + analytics_fields
+                    + ["selected_mics"]
+                )
+                for p in target_event.points:
+                    a = p.analytics
+
+                    if a is None:
+                        continue
+
+                    a.start_time = p.abs_ts - target_event.audio_fist_timestamp
+
+                    writer.writerow(
+                        [p.idx, float(p.rel_ts), p.score]
+                        + [float(getattr(a, k, np.nan)) for k in analytics_fields]
+                        + [getattr(a, "selected_mics_str", "")]
+                    )
+
+                    # cross-correlation plots only for low-score points
+                    if p.score < self._cfg.SCORE_THRESHOLD and getattr(
+                        a, "cross_correlations", None
+                    ):
+                        audio_chunk = None
+
+                        try:
+                            blocksize = (
+                                target_event.audio_file[0].shape[0]
+                                if len(target_event.audio_file) > 0
+                                else self._cfg.blocksize
+                            )
+                            start_idx = round(a.start_time * self._cfg.fs / blocksize)
+                            end_idx = start_idx + round(a.chunk_size / blocksize)
+                            blocks = np.array(
+                                target_event.audio_file[start_idx:end_idx]
+                            )
+                            audio_chunk = np.concatenate(blocks, axis=0)
+                            print(
+                                f"CORRECTLY COMPUTED AUDIO CHUNK SIZE: {np.shape(audio_chunk)} between blocks {start_idx} and {end_idx}"
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                f"Could not extract audio chunk for point {p.idx}: {e}"
+                            )
+                        try:
+                            plots_dir.mkdir(exist_ok=True)
+                            print(f"AUDIO CHUNK SIZE: {np.shape(audio_chunk)}")
+                            fig = plot_cross_correlations(a, audio_chunk)
+                            fig.savefig(
+                                plots_dir / f"point_{p.idx:02d}_score_{p.score}.png",
+                                dpi=100,
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                f"Could not save CC plot for point {p.idx}: {e}"
+                            )
 
         ## SAVING SPECTROGRAM ##
         spectrogram_filename = f"{event_stem}.spectrogram.npy"

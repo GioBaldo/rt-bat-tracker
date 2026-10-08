@@ -71,6 +71,7 @@ logging.getLogger("MPR").setLevel(logging.INFO)
 logging.getLogger("STATE").setLevel(logging.INFO)
 logging.getLogger("AUDIO").setLevel(logging.INFO)
 logging.getLogger("LOC").setLevel(logging.DEBUG)
+logging.getLogger("EVENT").setLevel(logging.INFO)
 
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
 logging.getLogger("PyQt5").setLevel(logging.WARNING)

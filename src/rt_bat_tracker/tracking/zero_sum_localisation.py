@@ -25,6 +25,7 @@ try:
     from rt_bat_tracker.tracking.localisation_mpr2003 import (
         tristar_mellen_pachter,
     )
+    from rt_bat_tracker.utils.analytics_plots import plot_cross_correlations
 except ImportError:
     logger.error("Unable to import tracking modules.")
 
@@ -80,7 +81,6 @@ class Config:
 
 @dataclass
 class LocAnalytics:
-    """Dataclass per le metriche di analisi della localizzazione."""
 
     start_time: float = 0.0
     call_duration: float = 0.0
@@ -91,6 +91,8 @@ class LocAnalytics:
     validation_duration: float = 0.0
     loc_duration: float = 0.0
     chunk_size: int = 0
+    selected_mics: list = field(default_factory=list)
+    selected_mics_str: str = ""
     cross_correlations: list = field(default_factory=list)
     channel_pairs: list = field(default_factory=list)
     TDOA: list = field(default_factory=list)
@@ -136,7 +138,6 @@ class ZeroSumLocalizer:
         """
 
         analytics = LocAnalytics(
-            start_time=time.perf_counter_ns(),
             chunk_size=chunk.shape[0],
             significant_channels=significant_channels,
         )
@@ -176,6 +177,9 @@ class ZeroSumLocalizer:
             significant_channels,
             keep=ch_to_keep,
         )
+
+        analytics.selected_mics = selected_mics
+        analytics.selected_mics_str = "".join(map(str, selected_mics))
 
         analytics.validation_duration = (
             time.perf_counter_ns() - analytics.start_time - analytics.cc_duration
@@ -286,148 +290,6 @@ class ZeroSumLocalizer:
             mic_errors.tolist(),
             TDOA_sum,
         )
-
-    def plot_analytics(self, analytics: LocAnalytics, chunk: np.ndarray = None):
-        """Plot delle metriche di analisi e dei canali audio separati.
-
-        Layout (5 colonne):
-        - Riga 1: 5 subplot separati (uno per canale audio).
-        - Righe 2+: Subplot delle cross-correlazioni organizzati su 5 colonne.
-        """
-        import matplotlib.pyplot as plt
-        import matplotlib.colors as mcolors
-
-        num_pairs = len(analytics.cross_correlations)
-        cols = 5
-
-        # Calcolo delle righe necessarie: 1 riga per i 5 canali audio + righe per le CC
-        cc_rows = (
-            (num_pairs + cols - 1) // cols if num_pairs > 0 else 0
-        )  # Esempio: 20 / 5 = 4 righe
-        total_rows = 1 + cc_rows  # Totale righe (1 audio + CC)
-
-        fig = plt.figure(figsize=(18, 2.5 * total_rows), constrained_layout=True)
-        fig.suptitle(
-            "Localisation Analytics - Audio Channels & Cross-Correlations",
-            fontsize=15,
-            fontweight="bold",
-        )
-
-        gs = fig.add_gridspec(total_rows, cols)
-
-        # ----------------------------------------------------
-        # RIGA 1: 5 Subplot separati per i canali audio
-        # ----------------------------------------------------
-        if chunk is not None:
-            num_samples, num_channels = chunk.shape
-            time_axis = np.arange(num_samples)
-            colors_audio = plt.cm.Set1(np.linspace(0, 1, max(num_channels, 5)))
-
-            for ch in range(min(num_channels, cols)):
-                ax_ch = fig.add_subplot(gs[0, ch])
-                ax_ch.plot(
-                    time_axis,
-                    chunk[:, ch],
-                    color=colors_audio[ch],
-                    linewidth=0.8,
-                )
-                ax_ch.set_title(
-                    f"Channel {ch}",
-                    fontsize=10,
-                    fontweight="semibold",
-                    color="navy",
-                )
-                ax_ch.grid(True, linestyle=":", alpha=0.6)
-                ax_ch.tick_params(axis="both", labelsize=8)
-
-                if ch == 0:
-                    ax_ch.set_ylabel("Amplitude", fontsize=8)
-                ax_ch.set_xlabel("Samples", fontsize=8)
-
-        # ----------------------------------------------------
-        # RIGHE 2+: Grid per le Cross-Correlazioni (5 colonne)
-        # ----------------------------------------------------
-        if num_pairs > 0:
-            cc_colors = plt.cm.viridis(np.linspace(0.1, 0.9, num_pairs))
-
-            # 1. Normalizzazione per la scala di errore (da Verde=0 a Rosso=Max)
-            # Usiamo RdYlGn_r (reversed) così 0 è verde e il max è rosso
-            min_err = 0.0
-            max_err = (
-                np.max(analytics.cc_errors)
-                if len(analytics.cc_errors) > 0 and np.max(analytics.cc_errors) > 0
-                else 1.0
-            )
-            norm = mcolors.Normalize(vmin=min_err, vmax=max_err)
-            cmap_error = plt.cm.RdYlGn_r
-
-            for i, cc in enumerate(analytics.cross_correlations):
-                # Posizionamento in griglia a partire dalla riga index 1
-                r = 1 + (i // cols)
-                c = i % cols
-
-                ax_cc = fig.add_subplot(gs[r, c])
-                pair = (
-                    analytics.channel_pairs[i]
-                    if i < len(analytics.channel_pairs)
-                    else (i,)
-                )
-
-                # 2. Determinazione del colore del bordo in base all'errore
-                current_err = (
-                    analytics.cc_errors[i] if i < len(analytics.cc_errors) else 0.0
-                )
-                border_color = cmap_error(norm(current_err))
-
-                # Applicazione del bordo colorato su tutti e 4 i lati del subplot
-                for spine in ax_cc.spines.values():
-                    spine.set_edgecolor(border_color)
-                    spine.set_linewidth(2.5)  # Spessore maggiorato per visibilità
-
-                # Traiettoria Cross-Correlazione
-                ax_cc.plot(cc, color=cc_colors[i], linewidth=1.1)
-
-                # Marker sul picco massimo (Lag stimato)
-                max_idx = np.argmax(cc)
-                max_val = cc[max_idx]
-                ax_cc.plot(max_idx, max_val, "ro", markersize=3.5)
-                ax_cc.axvline(
-                    x=max_idx,
-                    color="red",
-                    linestyle="--",
-                    alpha=0.5,
-                    linewidth=0.8,
-                )
-
-                # Styling del subplot
-                ax_cc.set_title(f"Pair {pair}", fontsize=9, fontweight="semibold")
-                ax_cc.grid(True, linestyle=":", alpha=0.6)
-                ax_cc.tick_params(axis="both", labelsize=8)
-
-                # Etichetta TDOA e Errore integrata
-                if i < len(analytics.TDOA):
-                    tdoa_us = analytics.TDOA[i] * 1e6
-                    ax_cc.text(
-                        0.03,
-                        0.72,
-                        f"TDOA: {tdoa_us:.1f} µs\nErr: {current_err:.2e}",
-                        transform=ax_cc.transAxes,
-                        fontsize=7,
-                        bbox=dict(
-                            boxstyle="round,pad=0.2",
-                            facecolor="white",
-                            alpha=0.85,
-                            edgecolor=border_color,
-                            lw=1.2,
-                        ),
-                    )
-
-                if c == 0:
-                    ax_cc.set_ylabel("Correlation", fontsize=8)
-                if r == total_rows - 1:
-                    ax_cc.set_xlabel("Lag", fontsize=8)
-
-        plt.show()
 
     def _highpass_filter(self, block):
         """
@@ -548,7 +410,11 @@ class TestLocalizerWithRealFiles(unittest.TestCase):
             logger.info(
                 f"computed locations: {locations} - TDOA sum: {analytics.TDOA_sum*1e6:.6f} us"
             )
-            # self.localizer.plot_analytics(analytics, audio_data)
+
+            import matplotlib.pyplot as plt
+
+            plot_cross_correlations(analytics, audio_data, fig=plt.figure())
+            plt.show()
 
 
 if __name__ == "__main__":

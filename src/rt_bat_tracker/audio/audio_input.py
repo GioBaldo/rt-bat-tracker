@@ -87,7 +87,9 @@ def run(state, cfg):
     time.sleep(1)
     state.start()
     e = source.start()  # blocks until stop_event or end of file
-    if e is not None:  # if e is None means that the stop wa requested by another thread
+    if (
+        e is not None
+    ):  # if e is None means that the stop was requested by another thread
         state.stop(e)  # otherwise e is the name of the source which requested the stop
 
     logger.info("audio_input.run: exit")

@@ -173,6 +173,7 @@ class AudioProcessor:
             path_diff = (
                 time_delays * self.cfg.vsound
             )  # Localization compudet on Range Difference! [meters]
+
             locations = tristar_mellen_pachter(
                 self._state.micxyz[self.significant_channels],
                 path_diff,
@@ -192,6 +193,12 @@ class AudioProcessor:
                 self._state.micxyz[selected_mics],
                 path_diff,
                 self._state.normal_vector,
+            )
+
+            analytics.loc_duration = (
+                time.perf_counter_ns()
+                - analytics.validation_duration
+                - analytics.start_time
             )
 
         # SPEED CONSISTENCY CHECK
@@ -277,7 +284,7 @@ class AudioProcessor:
             block = self._highpass_filter(block)
 
             # put HP block in the event audio queue for later saving (all channels)
-            self._state.write_wav_buffer(block)
+            self._state.write_wav_buffer(block, timestamp)
 
             # remove unused channels
             block = block[:, : self._state.micxyz.shape[0]]

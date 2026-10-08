@@ -5,7 +5,7 @@ from scipy.spatial.transform import Rotation as R
 from pathlib import Path
 import time
 
-array = pd.read_csv("M_ARRAY.TXT", delimiter=",")
+array = pd.read_csv("M_GROUNDT.TXT", delimiter=",")
 xyz_array = array[["East", "North", "Height"]].to_numpy()
 
 # trasformazione per portare su piano xy
@@ -61,7 +61,7 @@ scatter = ax.scatter(
     array["East"],
     array["North"],
     array["Height"],
-    c="red",
+    c=np.where(array["Code"] == "S", "red", "orange"),
     s=40,
     label="Measured points",
 )
@@ -69,7 +69,7 @@ scatter_rotated = ax.scatter(
     output_df["East"],
     output_df["North"],
     output_df["Height"],
-    c="blue",
+    c=np.where(output_df["Code"] == "S", "blue", "green"),
     s=40,
     label="Rotated points",
 )
@@ -85,4 +85,4 @@ ax.legend()
 
 plt.show()
 
-np.savetxt("triangle_measured.csv", pts_final, delimiter=",")
+np.savetxt("adapted_groundtrooth.csv", pts_final, delimiter=",")

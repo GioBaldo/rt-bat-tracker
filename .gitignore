@@ -247,3 +247,6 @@ _version.py
 # Results directories
 results/
 src/rt_bat_tracker/GUI/GUI_Layout.ui
+tests/validation/audio_files
+tests/validation/GT_sessions
+tests/validation/logs

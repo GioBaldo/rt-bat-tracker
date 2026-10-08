@@ -19,8 +19,8 @@ def run(state, cfg, session):
     app = QApplication(sys.argv)
 
     window = MainWindow(state, cfg, session)
-    window.showFullScreen()
-    # window.show()
+    # window.showFullScreen()
+    window.show()
 
     app.aboutToQuit.connect(window.stop)
 

@@ -53,9 +53,9 @@ class SharedState:
         self.SAVE_RESULTS = cfg.SAVE_RESULTS
         self.suggested_threshold = 0
 
-        self.ROTATION_X = 90
-        self.ROTATION_Z = 0
-        self.H_DISPLACEMENT = 1
+        self.ROTATION_X = cfg.ROTATION_X
+        self.ROTATION_Z = cfg.ROTATION_Z
+        self.H_DISPLACEMENT = cfg.H_DISPLACEMENT
 
         self.normal_vector = self.rotate_coords(
             np.array([[0, 0, 1]]), self.ROTATION_X, self.ROTATION_Z, 0
@@ -93,7 +93,7 @@ class SharedState:
             logger.info(
                 "Full audio queue, dropped audio blocks: %d", self.dropped_audio
             )
-            self.stop()  ## JUST FOR DEBUGGING, REMOVE LATER!!!
+        #   self.stop()  ## JUST FOR DEBUGGING, REMOVE LATER!!!
 
     def get_audio(self, timeout=0.1):
         try:
@@ -133,7 +133,7 @@ class SharedState:
             return None, None, None
 
     # Wav buffer functions
-    def write_wav_buffer(self, block):
+    def write_wav_buffer(self, block, timestamp):
         """
         called from processing, writes blocks in a deque buffer.
         if data are not grabbed from session older ones are dropped
@@ -143,23 +143,28 @@ class SharedState:
         """
         logger.debug(f"writing wav_buffer with {np.shape(block)} samples")
         with self.buffer_lock:
-            self.event_wav_buffer.append((block))
+            self.event_wav_buffer.append((block, timestamp))
 
     def grab_wav_buffer(self):
         """
-        returns frames stored in the buffer since the last grab
-        as <list> of elements [blocksize, channels]
+        returns frames stored in the buffer since the last grab, in arrival order:
+            blocks: <list> of elements [blocksize, channels]
+            timestamps: <list> of the matching block timestamps (same length)
+        returns (None, None) if the buffer is empty
         """
         with self.buffer_lock:
             if len(self.event_wav_buffer) > 0:
-                items = list(self.event_wav_buffer)
+                items = list(self.event_wav_buffer)  # [(block, ts), (block, ts), ...]
                 self.event_wav_buffer.clear()
-                return items
             else:
                 logger.warning(
-                    f"Not enough data in wav_buffer to grab: {len(self.event_wav_buffer)} samples. Returning None."
+                    "Not enough data in wav_buffer to grab: 0 blocks. Returning None."
                 )
-                return None
+                return None, None
+
+        blocks = [block for block, _ in items]
+        timestamps = [ts for _, ts in items]
+        return blocks, timestamps
 
     # Detector queue functions
     def put_raw_for_detector(self, data):
