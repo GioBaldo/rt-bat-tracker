@@ -129,6 +129,8 @@ class AudioProcessor:
             chunk[:, self.significant_channels], self.cfg.fs
         )
 
+        
+
         path_diff = time_delays * self.cfg.vsound # Localization compudet on Range Difference! [meters]
         locations = tristar_mellen_pachter(
             self._state.micxyz[self.significant_channels], path_diff, self._state.normal_vector

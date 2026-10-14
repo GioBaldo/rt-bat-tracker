@@ -50,7 +50,7 @@ class SharedState:
         self.SAVE_RESULTS = cfg.SAVE_RESULTS
         self.suggested_threshold = 0
 
-        self.ROTATION_X = 90
+        self.ROTATION_X = 70
         self.ROTATION_Z = 0
         self.H_DISPLACEMENT = 1
 

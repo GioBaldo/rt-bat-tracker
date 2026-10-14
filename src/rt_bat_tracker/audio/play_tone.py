@@ -70,7 +70,7 @@ class PlayTone:
         k = (end_freq - start_freq) / duration
         phase = 2 * np.pi * (start_freq * t + 0.5 * k * t**2)
 
-        sweep = (1e9 * np.sin(phase)).astype(np.int32)
+        sweep = (2e9 * np.sin(phase)).astype(np.int32)
 
         # Apply the same trapezoidal envelope
         n = len(sweep)

@@ -1,4 +1,4 @@
-mode: "audiofile" # "alsa", "portAudio" , "audiofile"
+mode: "alsa" # "alsa", "portAudio" , "audiofile"
 SAVE_RESULTS: False
 
 blocksize: 1024
