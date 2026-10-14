@@ -1,6 +1,6 @@
-mode: "audiofile" # "alsa", "portAudio" , "audiofile"
-SAVE_RESULTS: True
-SAVE_ANALYTICS: True
+mode: "alsa" # "alsa", "portAudio" , "audiofile"
+SAVE_RESULTS: False
+SAVE_ANALYTICS: False
 loc_method: "zero_sum"  # "zero_sum"  "default_mpr" "speed_consistency"
 
 ROTATION_X: 0

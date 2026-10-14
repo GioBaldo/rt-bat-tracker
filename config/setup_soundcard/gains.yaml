@@ -1,0 +1,38 @@
+# Preset for the Scarlett 4th Gen analogue inputs (Line In 1-4 on 18i16, 1-8 on 18i20)
+# and line outputs (1-8).
+# Applied with:  python config/setup_soundcard/scarlett.py apply
+#
+# gain:      preamp gain, 0-70 (1 step ~ 1 dB, 0-69 dB)
+# phantom:   48 V phantom power (true / false)
+# air:       "Off" | "Presence" | "Presence + Drive"
+# level:     "Line" | "Inst"   (only inputs 1-2 have the Inst option)
+# autogain:  run the device auto-gain (leave false for fixed measurements)
+# safe:      Clip Safe (device lowers the gain by itself: keep false for measurements)
+#
+# Outputs (rear Line Out 1-8) and master:
+# volume:    output level in dB, -127..0 (0 = full level)
+# mute:      true / false
+# dim:       master only, the front Dim button (true / false)
+#
+# Input and output numbers can also be "all" to set every channel at once.
+# Any key left out is not touched on the device.
+
+card: auto  # "auto" = the only Focusrite card; or an ALSA card number / id (scarlett.py cards)
+
+inputs:
+  1: {gain: 40, phantom: false, air: "Off", level: "Line", autogain: true, safe: false}
+  2: {gain: 40, phantom: true, air: "Off", level: "Line", autogain: false, safe: false}
+  3: {gain: 40, phantom: true, air: "Off", autogain: false, safe: false}
+  4: {gain: 40, phantom: true, air: "Off", autogain: false, safe: false}
+
+outputs:
+  1: {volume: 0, mute: false}
+  2: {volume: 0, mute: false}
+  3: {volume: 0, mute: false}
+  4: {volume: 0, mute: false}
+  5: {volume: 0, mute: false}
+  6: {volume: 0, mute: false}
+  7: {volume: -127, mute: false}
+  8: {volume: -127, mute: false}
+
+master: {volume: 0, mute: false, dim: false}

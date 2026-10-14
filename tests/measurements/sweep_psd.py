@@ -28,7 +28,7 @@ systems the default backend is sounddevice.
 
 Usage (from the project root):
     # Raspberry Pi + Scarlett through ALSA (same device as PlayTone)
-    python tests/measurements/sweep_psd.py --mic-ch 3 --f-start 15000 --f-end 90000 --duration 500 -m "mic3 front"
+    python tests/measurements/sweep_psd.py --mic-ch 3 --f-start 5000 --f-end 90000 --duration 500 -m "mic3 front"
 
     # Windows: sounddevice, picks the Focusrite WDM-KS input/output pair by itself
     python tests/measurements/sweep_psd.py --mic-ch 3 -m "mic3 front"
@@ -287,7 +287,8 @@ def playrec_alsa(
     out = np.concatenate([np.zeros(int(pre_s * fs)), sweep, np.zeros(int(post_s * fs))])
     n_blocks = int(np.ceil(len(out) / out_period))
     tone = np.zeros(n_blocks * out_period, dtype=np.int32)
-    tone[: len(out)] = (out * INT32_FS).astype(np.int32)
+    # clip before the cast: values beyond full scale would wrap around in int32
+    tone[: len(out)] = (np.clip(out, -1.0, 1.0) * INT32_FS).astype(np.int32)
 
     underruns = 0
     for b in range(n_blocks):
@@ -482,8 +483,8 @@ def parse_args():
     p.add_argument(
         "--f-start",
         type=float,
-        default=15000,
-        help="sweep start frequency [Hz] (default: 15000)",
+        default=5000,
+        help="sweep start frequency [Hz] (default: 5000)",
     )
     p.add_argument(
         "--f-end",
@@ -606,6 +607,8 @@ def main():
         analyze(rec, sweep, meta, out_dir)
         return
 
+    if not 0 < args.amplitude <= 1:
+        raise SystemExit("--amplitude must be in (0, 1], 1.0 = full scale")
     if max(args.f_start, args.f_end) > args.fs / 2:
         raise SystemExit(f"sweep boundary above Nyquist ({args.fs / 2:g} Hz)")
 
