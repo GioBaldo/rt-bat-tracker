@@ -20,10 +20,10 @@
 card: auto  # "auto" = the only Focusrite card; or an ALSA card number / id (scarlett.py cards)
 
 inputs:
-  1: {gain: 40, phantom: false, air: "Off", level: "Line", autogain: true, safe: false}
-  2: {gain: 40, phantom: true, air: "Off", level: "Line", autogain: false, safe: false}
-  3: {gain: 40, phantom: true, air: "Off", autogain: false, safe: false}
-  4: {gain: 40, phantom: true, air: "Off", autogain: false, safe: false}
+  1: {gain: 52, phantom: true, air: "Off", level: "Line", autogain: true, safe: false}
+  2: {gain: 52, phantom: true, air: "Off", level: "Line", autogain: false, safe: false}
+  3: {gain: 52, phantom: true, air: "Off", autogain: false, safe: false}
+  4: {gain: 52, phantom: true, air: "Off", autogain: false, safe: false}
 
 outputs:
   1: {volume: 0, mute: false}
